@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-freelance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-freelance}
+      POSTGRES_DB: ${POSTGRES_DB:-freelance_agent}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freelance} -d ${POSTGRES_DB:-freelance_agent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      FREELANCE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-freelance}:${POSTGRES_PASSWORD:-freelance}@db:5432/${POSTGRES_DB:-freelance_agent}
+      FREELANCE_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
