@@ -75,6 +75,8 @@ async def update_settings(body: TelegramSettingsIn, db: AsyncSession = Depends(g
         test_res = await bot_service.test_token(raw_token)
         if test_res["ok"]:
             s.connection_status = "connected"
+            s.enabled = True
+            s.notify_enabled = True
             if test_res.get("bot_username"):
                 s.bot_username = test_res["bot_username"]
         else:
@@ -186,7 +188,13 @@ async def add_chat(body: ChatAddIn, db: AsyncSession = Depends(get_db), user: Us
         row.display_name = body.display_name.strip()
     if body.username:
         row.username = body.username.strip().lstrip("@")
+    
+    # Automatically enable telegram service and notifications
+    s = await _settings(db)
+    s.enabled = True
+    s.notify_enabled = True
     await db.commit()
+    bot_service.wakeup_supervisor()
     return {"ok": True, "chat_id": row.chat_id}
 
 
