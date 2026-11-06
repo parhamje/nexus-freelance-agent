@@ -26,6 +26,12 @@ class TelegramSettingsIn(BaseModel):
     notify_min_score: int | None = None
 
 
+class ChatAddIn(BaseModel):
+    chat_id: str
+    display_name: str | None = None
+    username: str | None = None
+
+
 async def _settings(db: AsyncSession) -> TelegramSetting:
     row = (await db.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
     if row is None:
@@ -38,6 +44,10 @@ async def _settings(db: AsyncSession) -> TelegramSetting:
 @router.get("/settings")
 async def get_settings(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     s = await _settings(db)
+    # Migrate to modern URL-safe NX-XXXXX pairing code if missing or legacy Persian
+    if not s.pairing_code or not s.pairing_code.startswith("NX-"):
+        s.pairing_code = bot_service.new_pairing_code()
+        await db.commit()
     return {
         "bot_token_masked": mask_secret(bot_service.decrypt_token(s)) if s.bot_token_encrypted else "",
         "has_token": bool(s.bot_token_encrypted),
@@ -58,9 +68,18 @@ async def update_settings(body: TelegramSettingsIn, db: AsyncSession = Depends(g
                           user: User = Depends(get_current_user)):
     s = await _settings(db)
     if body.bot_token:  # only overwrite when a new token is provided
-        s.bot_token_encrypted = encrypt_value(body.bot_token.strip())
-        s.connection_status = "disconnected"
+        raw_token = body.bot_token.strip()
+        s.bot_token_encrypted = encrypt_value(raw_token)
         await bot_service.reset_bot()
+        # Verify token automatically upon save
+        test_res = await bot_service.test_token(raw_token)
+        if test_res["ok"]:
+            s.connection_status = "connected"
+            if test_res.get("bot_username"):
+                s.bot_username = test_res["bot_username"]
+        else:
+            s.connection_status = "error"
+        s.last_check_at = datetime.now(timezone.utc)
     if body.enabled is not None:
         s.enabled = body.enabled
     if body.mode is not None:
@@ -74,6 +93,7 @@ async def update_settings(body: TelegramSettingsIn, db: AsyncSession = Depends(g
     if body.notify_min_score is not None:
         s.notify_min_score = max(0, min(100, body.notify_min_score))
     await db.commit()
+    bot_service.wakeup_supervisor()
     return await get_settings(db=db, user=user)
 
 
@@ -102,10 +122,33 @@ async def send_test(body: dict, db: AsyncSession = Depends(get_db), user: User =
     chat_id = body.get("chat_id")
     targets = [str(chat_id)] if chat_id else [c.chat_id for c in chats]
     if not targets:
-        raise HTTPException(400, "هیچ چت تأییدشده‌ای وجود ندارد؛ ابتدا با کد جفت‌سازی ربات را متصل کنید.")
-    ok, message = await bot_service.send_text(bot_service.decrypt_token(s), targets[0],
-                                              "✅ پیام آزمایشی از Freelance Agent\nاتصال ربات برقرار است.")
-    return {"ok": ok, "message": message, "sent_to": targets[0]}
+        raise HTTPException(400, "هیچ چت تأییدشده‌ای وجود ندارد؛ ابتدا با کد جفت‌سازی یا دکمه اتصال، چت را متصل کنید.")
+    
+    token = bot_service.decrypt_token(s)
+    text = body.get("message") or (
+        "⚡ <b>سامانه هوشمند فریلنسری NEXUS</b>\n\n"
+        "✅ <b>تست اتصال ربات تلگرام:</b> ارتباط سیستم با تلگرام برقرار و فعال است.\n"
+        "تمامی اعلان‌های پروژه‌ها و پیشنهادهای جدید به این چت ارسال خواهند شد.\n"
+        f"⏱ زمان تست: {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}"
+    )
+
+    results = []
+    for t in targets:
+        ok, msg = await bot_service.send_text(token, t, text)
+        results.append({"chat_id": t, "ok": ok, "message": msg})
+
+    any_ok = any(r["ok"] for r in results)
+    if not any_ok:
+        err = results[0]["message"] if results else "خطای نامشخص"
+        return {"ok": False, "message": f"ارسال ناموفق بود: {err}", "results": results}
+
+    success_count = sum(1 for r in results if r["ok"])
+    return {
+        "ok": True,
+        "message": f"پیام آزمایشی به {success_count} چت با موفقیت ارسال شد.",
+        "sent_to": targets[0] if len(targets) == 1 else "all",
+        "results": results
+    }
 
 
 @router.post("/disconnect")
@@ -115,6 +158,7 @@ async def disconnect(db: AsyncSession = Depends(get_db), user: User = Depends(ge
     s.connection_status = "disconnected"
     await bot_service.reset_bot()
     await db.commit()
+    bot_service.wakeup_supervisor()
     return {"ok": True}
 
 
@@ -124,6 +168,26 @@ async def regenerate_pairing(db: AsyncSession = Depends(get_db), user: User = De
     s.pairing_code = bot_service.new_pairing_code()
     await db.commit()
     return {"pairing_code": s.pairing_code}
+
+
+@router.post("/chats")
+async def add_chat(body: ChatAddIn, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    cid = body.chat_id.strip()
+    if not cid:
+        raise HTTPException(400, "شناسه چت (Chat ID) الزامی است.")
+    row = (await db.execute(
+        select(AuthorizedChatID).where(AuthorizedChatID.chat_id == cid)
+    )).scalar_one_or_none()
+    if row is None:
+        row = AuthorizedChatID(chat_id=cid)
+        db.add(row)
+    row.authorized = True
+    if body.display_name:
+        row.display_name = body.display_name.strip()
+    if body.username:
+        row.username = body.username.strip().lstrip("@")
+    await db.commit()
+    return {"ok": True, "chat_id": row.chat_id}
 
 
 @router.get("/chats")

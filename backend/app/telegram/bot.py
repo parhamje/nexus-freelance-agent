@@ -22,6 +22,12 @@ from app.services.text import format_toman
 log = get_logger("telegram-bot")
 
 _pairing_adjectives = ["طلایی", "نقره‌ای", "کهربایی", "فیروزه‌ای", "یاقوتی"]
+_supervisor_wakeup: asyncio.Event | None = None
+
+def wakeup_supervisor() -> None:
+    global _supervisor_wakeup
+    if _supervisor_wakeup is not None:
+        _supervisor_wakeup.set()
 
 STATUS_FA = {
     "discovered": "کشف شد", "pending_analysis": "در انتظار تحلیل", "analyzing": "در حال تحلیل",
@@ -34,7 +40,8 @@ STATUS_FA = {
 
 
 def new_pairing_code() -> str:
-    return f"{secrets.choice(_pairing_adjectives)}-{secrets.randbelow(900) + 100}"
+    # URL-safe alphanumeric pairing code (compatible with Telegram deep link /start parameter)
+    return f"NX-{secrets.randbelow(90000) + 10000}"
 
 
 def decrypt_token(setting) -> str:
@@ -229,8 +236,17 @@ def build_router():
         from app.models import AuthorizedChatID, TelegramSetting
 
         setting = (await setting_session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
-        if setting is None or not setting.pairing_code or code.strip() != setting.pairing_code:
+        if setting is None or not setting.pairing_code:
             return False
+
+        clean_input = code.strip().replace("\u200e", "").replace("\u200f", "").upper()
+        if clean_input.startswith("/START"):
+            clean_input = clean_input.replace("/START", "").strip()
+        clean_target = setting.pairing_code.strip().replace("\u200e", "").replace("\u200f", "").upper()
+
+        if clean_input != clean_target:
+            return False
+
         row = (await setting_session.execute(
             select(AuthorizedChatID).where(AuthorizedChatID.chat_id == str(chat.chat.id))
         )).scalar_one_or_none()
@@ -252,17 +268,37 @@ def build_router():
             code = args[1].strip() if len(args) > 1 else ""
             paired = await _pair(session, message, code) if code else False
             if paired:
-                await message.answer("✅ چت شما تأیید شد!\nاز این پس اعلان پروژه‌ها و پیشنهادها اینجا ارسال می‌شود.\n\n/help برای راهنما")
+                await message.answer(
+                    "🎉 <b>اتصال با موفقیت برقرار شد!</b>\n\n"
+                    "حساب کاربری تلگرام شما به سامانه هوشمند فریلنسری <b>NEXUS</b> متصل گردید.\n"
+                    "از این پس اعلان پروژه‌های مناسب، هشدارهای فوری و پیش‌نویس پیشنهادها مستقیماً در این چت ارسال خواهند شد.\n\n"
+                    "دستورات سریع:\n"
+                    "🔹 /projects - مشاهده پروژه‌های پیشنهادی اخیر\n"
+                    "🔹 /status - بررسی وضعیت سیستم\n"
+                    "🔹 /help - راهنمای سامانه",
+                    parse_mode="HTML"
+                )
                 return
             if await _authorized(message.chat.id):
                 await message.answer(
-                    "👋 سلام!\nاین ربات دستیار کشف پروژه‌های فریلنسری شماست.\n\n"
-                    "/projects - آخرین پروژه‌های پیشنهادی\n/status - خلاصه وضعیت\n/help - راهنما")
+                    "👋 <b>درود!</b>\n"
+                    "اتصال شما به سامانه هوشمند فریلنسری <b>NEXUS</b> فعال است.\n\n"
+                    "دستورات سریع:\n"
+                    "🔹 /projects - آخرین پروژه‌های پیشنهادی\n"
+                    "🔹 /status - خلاصه وضعیت سیستم\n"
+                    "🔹 /help - راهنمای کاربری",
+                    parse_mode="HTML"
+                )
                 return
             await message.answer(
-                "🔒 این چت تأیید نشده است.\n"
-                "برای اتصال، در داشبورد وب به بخش «تلگرام» بروید، کد جفت‌سازی را ببینید و اینجا بفرستید:\n\n"
-                "/start <کد>")
+                "🔒 <b>این چت هنوز در سامانه NEXUS تأیید نشده است.</b>\n\n"
+                "برای اتصال حساب کاربری:\n"
+                "1️⃣ وارد داشبورد <b>NEXUS</b> شوید.\n"
+                "2️⃣ در تب «ربات تلگرام»، روی دکمه <b>اتصال مستقیم</b> کلیک کنید یا کد جفت‌سازی را کپی کنید.\n"
+                "3️⃣ در صورت ارسال دستی، کد را به این شکل بفرستید:\n"
+                "<code>/start کد_جفت‌سازی</code>",
+                parse_mode="HTML"
+            )
 
     @router.message(Command("help"))
     async def cmd_help(message: Message):
@@ -611,6 +647,9 @@ async def start_polling(session_factory) -> None:
     from aiogram import Dispatcher
     from aiogram.fsm.storage.memory import MemoryStorage
 
+    global _supervisor_wakeup
+    _supervisor_wakeup = asyncio.Event()
+
     current_hash = None
     dp = None
     bot = None
@@ -662,7 +701,12 @@ async def start_polling(session_factory) -> None:
             raise
         except Exception as exc:  # noqa: BLE001
             log.warning("telegram supervisor error: %s", exc)
-        await asyncio.sleep(10)
+
+        try:
+            await asyncio.wait_for(_supervisor_wakeup.wait(), timeout=10.0)
+            _supervisor_wakeup.clear()
+        except asyncio.TimeoutError:
+            pass
 
 
 async def stop_polling_task(task: asyncio.Task | None) -> None:

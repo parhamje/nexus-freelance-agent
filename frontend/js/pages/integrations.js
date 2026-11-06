@@ -183,89 +183,535 @@ export const telegram = {
   title: () => 'ربات تلگرام',
   async render(container) {
     container.innerHTML = spinner();
-    const [s, chats] = await Promise.all([api.get('/telegram/settings'), api.get('/telegram/chats')]);
+    const [s, chats] = await Promise.all([
+      api.get('/telegram/settings').catch(() => ({})),
+      api.get('/telegram/chats').catch(() => ({ items: [] })),
+    ]);
+
+    const isConnected = s.connection_status === 'connected';
+    const isError = s.connection_status === 'error';
+    const botUser = s.bot_username ? s.bot_username.replace(/^@/, '') : '';
+    const deepLinkUrl = botUser && s.pairing_code ? `https://t.me/${botUser}?start=${encodeURIComponent(s.pairing_code)}` : '';
+    const activeChatsCount = (chats.items || []).filter(c => c.authorized).length;
+
     container.innerHTML = `
       ${channelSubTabs('telegram')}
-      <div class="grid lg:grid-cols-2 gap-4">
-        <div class="card p-5 space-y-3 border border-slate-200/80 dark:border-slate-800">
-          <h3 class="font-bold text-sm flex items-center gap-2">
-            ${icon('plane', 'w-4 h-4 text-teal-600')}
-            <span>پیکربندی ربات تلگرام / BotFather Config</span>
-          </h3>
-          <ol class="text-xs text-neutral-500 list-decimal ps-5 leading-6">
-            <li>در تلگرام از <b>@BotFather</b> با دستور /newbot یک ربات بسازید.</li>
-            <li>توکن دریافتی را اینجا ذخیره کنید (رمزنگاری‌شده نگهداری می‌شود).</li>
-            <li>به ربات /start بدهید و با کد جفت‌سازی زیر چت را تأیید کنید.</li>
-          </ol>
-          <div><label class="lbl">توکن ربات ${s.has_token ? `(ذخیره‌شده: ${esc(s.bot_token_masked)})` : ''}</label>
-            <input id="tg-token" class="inp" placeholder="${s.has_token ? 'برای تغییر، توکن جدید را وارد کنید' : '123456:ABC-DEF...'}"></div>
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div><label class="lbl">وضعیت</label>${badge(s.connection_status === 'connected' ? 'متصل' : s.connection_status === 'error' ? 'خطا' : 'قطع', s.connection_status === 'connected' ? 'green' : s.connection_status === 'error' ? 'red' : 'neutral')}</div>
-            <div><label class="lbl">یوزرنیم</label><div class="mt-1">${esc(s.bot_username || '—')}</div></div>
-          </div>
-          <div class="flex flex-wrap gap-2 pt-2">
-            <button class="btn-action-primary" id="tg-save">${icon('check', 'w-3.5 h-3.5')}<span>ذخیره توکن</span></button>
-            <button class="btn-action" id="tg-test">${icon('activity', 'w-3.5 h-3.5 text-teal-600')}<span>تست اتصال</span></button>
-            <button class="btn-action" id="tg-send">${icon('plane', 'w-3.5 h-3.5 text-sky-600')}<span>ارسال پیام آزمایشی</span></button>
-            <button class="btn-action text-rose-600 dark:text-rose-400 hover:border-rose-500/40" id="tg-disconnect">${icon('close', 'w-3.5 h-3.5 text-rose-500')}<span>قطع اتصال</span></button>
-          </div>
-          <div class="text-xs space-y-1 pt-2 border-t border-neutral-200 dark:border-ink-700">
-            <label class="flex items-center gap-2"><input type="checkbox" id="tg-enabled" ${s.enabled ? 'checked' : ''}> ربات فعال باشد (polling)</label>
-            <label class="flex items-center gap-2"><input type="checkbox" id="tg-notify" ${s.notify_enabled ? 'checked' : ''}> ارسال اعلان به تلگرام</label>
-            <div class="flex items-center gap-2">حداقل امتیاز برای اعلان: <input type="number" id="tg-minscore" class="inp max-w-20 py-1" value="${s.notify_min_score}" min="0" max="100"></div>
-          </div>
-        </div>
-        <div class="card p-4 space-y-3">
-          <h3 class="font-bold text-sm">🔐 چت‌های تأییدشده</h3>
-          <div class="surface p-3 flex items-center justify-between">
-            <div><div class="text-[10px] text-neutral-400">کد جفت‌سازی</div>
-              <div class="text-lg font-bold tracking-widest gold-text" id="pairing-code">${esc(s.pairing_code || '—')}</div></div>
-            <button class="btn text-[11px]" id="regen-code">تولید کد جدید</button>
-          </div>
-          <div class="text-xs text-neutral-500">در تلگرام به ربات بفرستید: <code class="surface px-1.5 py-0.5 rounded">/start ${esc(s.pairing_code || '')}</code></div>
-          <div class="space-y-2">
-            ${chats.items.length ? chats.items.map(c => `
-              <div class="surface p-2.5 flex items-center gap-2 text-xs" data-chat="${c.chat_id}">
-                <div class="flex-1"><b>${esc(c.display_name || c.chat_id)}</b> ${c.username ? '@' + esc(c.username) : ''}
-                  ${badge(c.authorized ? 'تأییدشده' : 'غیرفعال', c.authorized ? 'green' : 'neutral')}</div>
-                <button class="btn text-[11px]" data-toggle>${c.authorized ? 'غیرفعال' : 'فعال'}</button>
-                <button class="btn btn-danger text-[11px]" data-del>حذف</button>
-              </div>`).join('') : emptyState('هنوز چتی جفت نشده است')}
-          </div>
-        </div>
-      </div>`;
 
+      <!-- Hero Header & Live Telemetry -->
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 p-6 border border-slate-700/60 shadow-xl mb-6 text-white">
+        <div class="absolute -end-10 -bottom-10 w-48 h-48 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-600 to-teal-400 p-0.5 shadow-lg shadow-sky-500/20 shrink-0 flex items-center justify-center">
+              <div class="w-full h-full bg-slate-900/40 rounded-[14px] flex items-center justify-center text-white">
+                ${icon('telegram', 'w-8 h-8')}
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center gap-2.5">
+                <h2 class="text-lg font-bold tracking-tight">مرکز ارتباط و اعلان‌های هوشمند تلگرام</h2>
+                ${isConnected ? `
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>آنلاین و فعال</span>
+                  </span>
+                ` : isError ? `
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                    <span>خطای اتصال توکن</span>
+                  </span>
+                ` : `
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/20 text-slate-300 border border-slate-600/40">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span>قطع اتصال</span>
+                  </span>
+                `}
+              </div>
+              <p class="text-xs text-slate-300/80 mt-1">
+                پایش لحظه‌ای مناقصات، ارسال خودکار پروژه‌ها با امتیاز بالا، و دریافت تاییدیه پیشنهادها در پیام‌رسان تلگرام
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <div class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 backdrop-blur-xs">
+              <span class="text-slate-400">ربات:</span>
+              ${botUser ? `
+                <a href="https://t.me/${botUser}" target="_blank" class="font-mono text-sky-400 hover:underline flex items-center gap-1 font-semibold">
+                  @${esc(botUser)}
+                  ${icon('external', 'w-3 h-3')}
+                </a>
+              ` : `<span class="text-slate-400 font-mono">تنظیم نشده</span>`}
+            </div>
+            <div class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 backdrop-blur-xs">
+              <span class="text-slate-400">چت‌های متصل:</span>
+              <span class="font-bold text-emerald-400">${activeChatsCount} فعال</span>
+            </div>
+            <div class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 backdrop-blur-xs">
+              <span class="text-slate-400">حالت کار:</span>
+              <span class="font-semibold text-teal-300">${s.enabled ? 'Polling پس‌زمینه' : 'غیرفعال'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Two Columns Studio -->
+      <div class="grid lg:grid-cols-12 gap-5 mb-6">
+
+        <!-- Column 1: Fast Pairing & Telegram Connect (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="card p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-sm flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                  <span class="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center">
+                    ${icon('key', 'w-4 h-4')}
+                  </span>
+                  <span>اتصال سریع و جفت‌سازی (Quick Pair)</span>
+                </h3>
+                <button id="regen-code" class="btn text-xs py-1 px-2.5 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-sky-500 transition" title="تولید کد جدید">
+                  ${icon('refresh', 'w-3.5 h-3.5')}
+                  <span>کد جدید</span>
+                </button>
+              </div>
+
+              <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+                کد اختصاصی زیر برای احراز هویت چت شما در تلگرام است. برای اتصال ۱-ثانیه‌ای، کافیست روی دکمه آبی زیر کلیک کنید تا ربات تلگرام با کد آماده باز شود.
+              </p>
+
+              <!-- Code Display Box -->
+              <div class="p-4 rounded-xl bg-slate-900 text-white border border-slate-800 relative overflow-hidden group shadow-inner mb-4">
+                <div class="absolute -top-10 -end-10 w-24 h-24 bg-sky-500/10 rounded-full blur-xl"></div>
+                <div class="text-[11px] text-slate-400 mb-1 flex items-center justify-between">
+                  <span>کد جفت‌سازی یکتا</span>
+                  <span class="text-[10px] text-teal-400 font-mono">Telegram URL-Safe</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div class="text-2xl font-black font-mono tracking-wider text-teal-300 select-all" id="pairing-code">
+                    ${esc(s.pairing_code || 'NX-00000')}
+                  </div>
+                  <button id="copy-code-btn" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1.5 text-xs" title="کپی کد">
+                    ${icon('copy', 'w-4 h-4')}
+                    <span id="copy-text">کپی</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 1-Click Deep Link Button -->
+              ${botUser ? `
+                <a href="${deepLinkUrl}" target="_blank" id="tg-deep-link" class="w-full mb-3 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white font-bold text-sm shadow-md shadow-sky-500/25 transition transform active:scale-[0.99]">
+                  ${icon('telegram', 'w-5 h-5')}
+                  <span>اتصال آنی با تلگرام (1-Click Pair)</span>
+                  ${icon('external', 'w-4 h-4 opacity-80')}
+                </a>
+              ` : `
+                <button disabled class="w-full mb-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-400 font-bold text-sm cursor-not-allowed">
+                  ${icon('telegram', 'w-5 h-5')}
+                  <span>ابتدا توکن معتبر ربات را ذخیره کنید</span>
+                </button>
+              `}
+
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
+                <span>دستور مستقیم در ربات:</span>
+                <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-slate-700 dark:text-teal-400" id="cmd-preview">/start ${esc(s.pairing_code || '')}</code>
+              </div>
+            </div>
+
+            <!-- BotFather Guide Accordion -->
+            <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800">
+              <button id="guide-toggle-btn" class="w-full flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 transition">
+                <span class="flex items-center gap-1.5">
+                  ${icon('sparkles', 'w-3.5 h-3.5 text-teal-500')}
+                  <span>راهنمای ۳ مرحله‌ای ساخت ربات در BotFather</span>
+                </span>
+                <span id="guide-chevron">${icon('chevronDown', 'w-3.5 h-3.5')}</span>
+              </button>
+              <div id="guide-content" class="hidden mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-2 leading-relaxed">
+                <div class="flex items-start gap-2">
+                  <span class="w-5 h-5 rounded-full bg-teal-500/15 text-teal-500 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">۱</span>
+                  <div>در تلگرام به آیدی <a href="https://t.me/BotFather" target="_blank" class="text-sky-500 underline font-semibold">@BotFather</a> بروید و دستور <code class="font-mono bg-white dark:bg-slate-800 px-1 rounded">/newbot</code> را ارسال کنید.</div>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="w-5 h-5 rounded-full bg-teal-500/15 text-teal-500 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">۲</span>
+                  <div>یک نام دلخواه و سپس یک نام کاربری (که با <code class="font-mono">bot</code> ختم شود) انتخاب کنید.</div>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="w-5 h-5 rounded-full bg-teal-500/15 text-teal-500 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">۳</span>
+                  <div>توکن API ارائه‌شده را کپی کرده و در فیلد روبرو ذخیره نمایید.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Chat Authorization Box -->
+          <div class="card p-4 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                ${icon('link', 'w-3.5 h-3.5 text-teal-500')}
+                <span>افزودن و تأیید مستقیم شناسه چت (Manual Add)</span>
+              </h4>
+            </div>
+            <p class="text-[11px] text-slate-500 mb-3">اگر Chat ID عددی خود را دارید، می‌توانید بدون نیاز به ارسال کد، چت را مستقیماً ثبت و فعال کنید.</p>
+            <div class="space-y-2">
+              <div class="grid grid-cols-2 gap-2">
+                <input id="manual-chat-id" class="inp text-xs py-1.5 font-mono" placeholder="Chat ID (مثال: 98124821)">
+                <input id="manual-chat-name" class="inp text-xs py-1.5" placeholder="نام یا عنوان (اختیاری)">
+              </div>
+              <button id="manual-chat-submit" class="w-full btn text-xs py-1.5 flex items-center justify-center gap-1.5 hover:border-teal-500">
+                ${icon('check', 'w-3.5 h-3.5 text-teal-600')}
+                <span>ثبت و فعال‌سازی فوری چت</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 2: Credentials & Engine Controls (7 cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="card p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-sm flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                <span class="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-500 flex items-center justify-center">
+                  ${icon('cpu', 'w-4 h-4')}
+                </span>
+                <span>تنظیمات توکن ربات و موتور پردازش</span>
+              </h3>
+              ${s.last_check_at ? `
+                <span class="text-[10px] text-slate-400 font-mono">بررسی: ${new Date(s.last_check_at).toLocaleTimeString('fa-IR')}</span>
+              ` : ''}
+            </div>
+
+            <!-- Token Input with Show/Hide Toggle -->
+            <div>
+              <label class="lbl flex items-center justify-between">
+                <span>توکن اختصاصی ربات (HTTP API Token)</span>
+                ${s.has_token ? `
+                  <span class="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
+                    ${icon('check', 'w-3 h-3')} توکن ذخیره شده (${esc(s.bot_token_masked)})
+                  </span>
+                ` : `<span class="text-[10px] text-amber-500">توکن ثبت نشده</span>`}
+              </label>
+              <div class="relative mt-1">
+                <input id="tg-token" type="password" class="inp pe-10 font-mono text-xs" placeholder="${s.has_token ? 'برای تغییر توکن، مقدار جدید را وارد کنید...' : '123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ...'}" autocomplete="off">
+                <button type="button" id="toggle-token-vis" class="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition p-1" title="نمایش/پنهان کردن توکن">
+                  <span id="token-eye-icon">${icon('eye', 'w-4 h-4')}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Toolbar Action Buttons -->
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <button class="btn-action-primary" id="tg-save">
+                ${icon('check', 'w-3.5 h-3.5')}
+                <span>ذخیره و اعتبارسنجی</span>
+              </button>
+              <button class="btn-action" id="tg-test">
+                ${icon('activity', 'w-3.5 h-3.5 text-teal-600')}
+                <span>تست اتصال زنده</span>
+              </button>
+              <button class="btn-action" id="tg-send">
+                ${icon('plane', 'w-3.5 h-3.5 text-sky-500')}
+                <span>ارسال پیام تست همگانی</span>
+              </button>
+              ${s.has_token ? `
+                <button class="btn-action text-rose-600 dark:text-rose-400 hover:border-rose-500/40" id="tg-disconnect">
+                  ${icon('close', 'w-3.5 h-3.5 text-rose-500')}
+                  <span>قطع اتصال</span>
+                </button>
+              ` : ''}
+            </div>
+
+            <!-- Engine Automation Preferences -->
+            <div class="pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-3.5 text-xs">
+              <div class="font-bold text-slate-700 dark:text-slate-200">رفتار هوشمند و قوانین ارسال</div>
+
+              <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
+                <div>
+                  <div class="font-semibold text-slate-800 dark:text-slate-200">سرویس ربات تلگرام (Background Polling)</div>
+                  <div class="text-[11px] text-slate-500">فعال بودن ربات جهت دریافت دستورات (/projects, /status) و دکمه‌های تایید پیشنهاد</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="tg-enabled" class="sr-only peer" ${s.enabled ? 'checked' : ''}>
+                  <div class="w-10 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                </label>
+              </div>
+
+              <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
+                <div>
+                  <div class="font-semibold text-slate-800 dark:text-slate-200">ارسال خودکار اعلان پروژه‌ها به تلگرام</div>
+                  <div class="text-[11px] text-slate-500">ارسال کارت مشخصات پروژه‌های جدید کشف‌شده به همراه دکمه‌های تولید و ارسال پیشنهاد</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="tg-notify" class="sr-only peer" ${s.notify_enabled ? 'checked' : ''}>
+                  <div class="w-10 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                </label>
+              </div>
+
+              <!-- Min Score Threshold Slider -->
+              <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="font-semibold text-slate-800 dark:text-slate-200">فیلتر هوش مصنوعی (حداقل امتیاز تطابق)</span>
+                    <span class="text-[11px] text-slate-500 block">فقط پروژه‌هایی که امتیاز ارزیابی هوش مصنوعی آنها برابر یا بالاتر از این حد باشد به تلگرام ارسال می‌شوند.</span>
+                  </div>
+                  <span id="minscore-badge" class="px-2.5 py-1 rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 font-bold font-mono text-sm">
+                    ${s.notify_min_score || 0}%
+                  </span>
+                </div>
+                <div class="flex items-center gap-3 pt-1">
+                  <input type="range" id="tg-minscore-slider" min="0" max="100" value="${s.notify_min_score || 0}" class="w-full accent-teal-600 cursor-pointer">
+                  <input type="number" id="tg-minscore" min="0" max="100" value="${s.notify_min_score || 0}" class="inp w-16 py-1 text-center font-mono text-xs">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full-Width Bottom Section: Authorized Chats Manager -->
+      <div class="card p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800">
+          <div>
+            <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <span class="w-6 h-6 rounded-md bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                ${icon('user', 'w-3.5 h-3.5')}
+              </span>
+              <span>چت‌ها و کانال‌های مجاز (${chats.items.length})</span>
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              لیست کاربران یا گروه‌هایی که با موفقیت جفت شده و حق دریافت پیام و تایید ارسال پیشنهادها را دارند.
+            </p>
+          </div>
+        </div>
+
+        ${chats.items.length ? `
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            ${chats.items.map(c => `
+              <div class="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 flex flex-col justify-between gap-3 shadow-2xs hover:border-teal-500/50 transition group" data-chat="${c.chat_id}">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 text-teal-300 flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                      ${(c.display_name || c.username || 'U')[0].toUpperCase()}
+                    </div>
+                    <div class="min-w-0">
+                      <div class="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">${esc(c.display_name || 'کاربر تلگرام')}</div>
+                      ${c.username ? `
+                        <a href="https://t.me/${esc(c.username)}" target="_blank" class="text-[11px] text-sky-500 hover:underline flex items-center gap-0.5">
+                          @${esc(c.username)}
+                        </a>
+                      ` : `<span class="text-[10px] text-slate-400">بدون یوزرنیم</span>`}
+                    </div>
+                  </div>
+                  <div>
+                    ${badge(c.authorized ? 'فعال' : 'غیرفعال', c.authorized ? 'green' : 'neutral')}
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg font-mono">
+                  <span>Chat ID: <b class="text-slate-700 dark:text-slate-300 select-all">${esc(c.chat_id)}</b></span>
+                  ${c.added_at ? `<span class="text-[10px]">${new Date(c.added_at).toLocaleDateString('fa-IR')}</span>` : ''}
+                </div>
+
+                <div class="flex items-center gap-1.5 pt-1">
+                  <button class="btn flex-1 text-[11px] py-1 text-sky-600 dark:text-sky-400 hover:border-sky-500/40 flex items-center justify-center gap-1" data-send-single title="ارسال پیام تست به این چت">
+                    ${icon('plane', 'w-3 h-3')}
+                    <span>ارسال تست</span>
+                  </button>
+                  <button class="btn flex-1 text-[11px] py-1 ${c.authorized ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}" data-toggle>
+                    ${c.authorized ? 'غیرفعال‌سازی' : 'فعال‌سازی'}
+                  </button>
+                  <button class="btn btn-danger text-[11px] py-1 px-2.5" data-del title="حذف">
+                    ${icon('trash', 'w-3 h-3')}
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div class="p-8 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+            <div class="w-12 h-12 rounded-full bg-sky-500/10 text-sky-500 flex items-center justify-center mx-auto mb-3">
+              ${icon('telegram', 'w-6 h-6')}
+            </div>
+            <h4 class="text-xs font-bold text-slate-700 dark:text-slate-200">هنوز هیچ چتی جفت نشده است</h4>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+              برای شروع دریافت اعلان‌ها، در تلگرام وارد ربات شوید و دستور <code class="font-mono text-teal-500">/start ${esc(s.pairing_code || '')}</code> را بفرستید یا از دکمه اتصال آنی در بالای صفحه استفاده کنید.
+            </p>
+          </div>
+        `}
+      </div>
+    `;
+
+    // Minscore Slider & Number Sync
+    const slider = container.querySelector('#tg-minscore-slider');
+    const numInput = container.querySelector('#tg-minscore');
+    const badgeEl = container.querySelector('#minscore-badge');
+    if (slider && numInput && badgeEl) {
+      slider.oninput = () => {
+        numInput.value = slider.value;
+        badgeEl.textContent = slider.value + '%';
+      };
+      numInput.oninput = () => {
+        slider.value = numInput.value;
+        badgeEl.textContent = numInput.value + '%';
+      };
+    }
+
+    // Token Visibility Toggle
+    const toggleVisBtn = container.querySelector('#toggle-token-vis');
+    const tokenInput = container.querySelector('#tg-token');
+    const eyeIconWrap = container.querySelector('#token-eye-icon');
+    if (toggleVisBtn && tokenInput && eyeIconWrap) {
+      let isVisible = false;
+      toggleVisBtn.onclick = () => {
+        isVisible = !isVisible;
+        tokenInput.type = isVisible ? 'text' : 'password';
+        eyeIconWrap.innerHTML = icon(isVisible ? 'eyeOff' : 'eye', 'w-4 h-4');
+      };
+    }
+
+    // BotFather Guide Accordion
+    const guideToggle = container.querySelector('#guide-toggle-btn');
+    const guideContent = container.querySelector('#guide-content');
+    const guideChevron = container.querySelector('#guide-chevron');
+    if (guideToggle && guideContent) {
+      guideToggle.onclick = () => {
+        guideContent.classList.toggle('hidden');
+        if (guideChevron) {
+          guideChevron.style.transform = guideContent.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+          guideChevron.style.transition = 'transform 0.2s ease';
+        }
+      };
+    }
+
+    // Copy Pairing Code
+    const copyBtn = container.querySelector('#copy-code-btn');
+    const copyText = container.querySelector('#copy-text');
+    if (copyBtn && s.pairing_code) {
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(s.pairing_code);
+          if (copyText) copyText.textContent = 'کپی شد!';
+          toast('کد جفت‌سازی در کلیپ‌بورد کپی شد', 'success');
+          setTimeout(() => { if (copyText) copyText.textContent = 'کپی'; }, 2000);
+        } catch {
+          toast('خطا در کپی خودکار', 'error');
+        }
+      };
+    }
+
+    // Regenerate Code
+    const regenBtn = container.querySelector('#regen-code');
+    if (regenBtn) {
+      regenBtn.onclick = async () => {
+        const r = await api.post('/telegram/pairing-code');
+        s.pairing_code = r.pairing_code;
+        const codeEl = container.querySelector('#pairing-code');
+        const cmdEl = container.querySelector('#cmd-preview');
+        const deepLinkEl = container.querySelector('#tg-deep-link');
+        if (codeEl) codeEl.textContent = r.pairing_code;
+        if (cmdEl) cmdEl.textContent = `/start ${r.pairing_code}`;
+        if (deepLinkEl && botUser) {
+          deepLinkEl.href = `https://t.me/${botUser}?start=${encodeURIComponent(r.pairing_code)}`;
+        }
+        toast('کد جفت‌سازی جدید تولید شد', 'success');
+      };
+    }
+
+    // Manual Chat Add
+    const manualSubmit = container.querySelector('#manual-chat-submit');
+    if (manualSubmit) {
+      manualSubmit.onclick = async () => {
+        const cid = container.querySelector('#manual-chat-id')?.value.trim();
+        const cname = container.querySelector('#manual-chat-name')?.value.trim();
+        if (!cid) return toast('لطفاً Chat ID را وارد کنید', 'error');
+        await api.post('/telegram/chats', { chat_id: cid, display_name: cname || null });
+        toast('چت با موفقیت ثبت و تأیید شد', 'success');
+        telegram.render(container);
+      };
+    }
+
+    // Save & Validate Settings
     container.querySelector('#tg-save').onclick = async () => {
       const token = container.querySelector('#tg-token').value.trim();
       const enabled = container.querySelector('#tg-enabled').checked;
       const notify = container.querySelector('#tg-notify').checked;
       const minscore = Number(container.querySelector('#tg-minscore').value);
-      if (!token && !s.has_token) return toast('توکن را وارد کنید', 'error');
-      await api.put('/telegram/settings', { ...(token ? { bot_token: token } : {}), enabled, notify_enabled: notify, notify_min_score: minscore });
-      toast('ذخیره شد؛ ربات در پس‌زمینه راه‌اندازی می‌شود', 'success');
+      if (!token && !s.has_token) return toast('توکن ربات را وارد کنید', 'error');
+      
+      const saveBtn = container.querySelector('#tg-save');
+      saveBtn.disabled = true;
+      try {
+        await api.put('/telegram/settings', {
+          ...(token ? { bot_token: token } : {}),
+          enabled,
+          notify_enabled: notify,
+          notify_min_score: minscore,
+        });
+        toast('تنظیمات ذخیره و اتصال ربات بررسی شد', 'success');
+      } catch (err) {
+        toast(`خطا در ذخیره‌سازی: ${err.message}`, 'error');
+      }
       telegram.render(container);
     };
+
+    // Live Connection Test
     container.querySelector('#tg-test').onclick = async () => {
+      const testBtn = container.querySelector('#tg-test');
+      testBtn.disabled = true;
       const r = await api.post('/telegram/test').catch(e => ({ ok: false, message: e.message }));
-      toast(r.ok ? `✅ ${r.message}` : `❌ ${r.message}`, r.ok ? 'success' : 'error', 8000);
+      testBtn.disabled = false;
+      toast(r.ok ? `✅ ${r.message}` : `❌ ${r.message}`, r.ok ? 'success' : 'error', 6000);
       telegram.render(container);
     };
+
+    // Broadcast Test Message to All Active Chats
     container.querySelector('#tg-send').onclick = async () => {
+      const sendBtn = container.querySelector('#tg-send');
+      sendBtn.disabled = true;
       const r = await api.post('/telegram/send-test', {}).catch(e => ({ ok: false, message: e.message }));
-      toast(r.ok ? '✅ پیام آزمایشی ارسال شد' : `❌ ${r.message}`, r.ok ? 'success' : 'error');
+      sendBtn.disabled = false;
+      toast(r.ok ? `✅ ${r.message}` : `❌ ${r.message}`, r.ok ? 'success' : 'error', 5000);
     };
-    container.querySelector('#tg-disconnect').onclick = () => confirmModal('اتصال ربات قطع شود؟', async () => {
-      await api.post('/telegram/disconnect'); toast('قطع شد'); telegram.render(container);
-    });
-    container.querySelector('#regen-code').onclick = async () => {
-      const r = await api.post('/telegram/pairing-code');
-      container.querySelector('#pairing-code').textContent = r.pairing_code;
-    };
+
+    // Disconnect Bot
+    const disconnectBtn = container.querySelector('#tg-disconnect');
+    if (disconnectBtn) {
+      disconnectBtn.onclick = () => confirmModal('آیا از قطع ارتباط ربات تلگرام اطمینان دارید؟', async () => {
+        await api.post('/telegram/disconnect');
+        toast('ارتباط ربات با سامانه قطع شد');
+        telegram.render(container);
+      });
+    }
+
+    // Individual Chat Actions
     container.querySelectorAll('[data-chat]').forEach(row => {
       const id = row.dataset.chat;
-      row.querySelector('[data-toggle]').onclick = async () => { await api.post(`/telegram/chats/${id}/toggle`); telegram.render(container); };
-      row.querySelector('[data-del]').onclick = async () => { await api.del(`/telegram/chats/${id}`); telegram.render(container); };
+      const sendBtn = row.querySelector('[data-send-single]');
+      if (sendBtn) {
+        sendBtn.onclick = async () => {
+          sendBtn.disabled = true;
+          const r = await api.post('/telegram/send-test', { chat_id: id }).catch(e => ({ ok: false, message: e.message }));
+          sendBtn.disabled = false;
+          toast(r.ok ? `✅ پیام آزمایشی به چت ${id} ارسال شد` : `❌ ${r.message}`, r.ok ? 'success' : 'error');
+        };
+      }
+      const toggleBtn = row.querySelector('[data-toggle]');
+      if (toggleBtn) {
+        toggleBtn.onclick = async () => {
+          await api.post(`/telegram/chats/${id}/toggle`);
+          toast('وضعیت چت تغییر یافت', 'success');
+          telegram.render(container);
+        };
+      }
+      const delBtn = row.querySelector('[data-del]');
+      if (delBtn) {
+        delBtn.onclick = () => confirmModal(`آیا چت ${id} حذف شود؟`, async () => {
+          await api.del(`/telegram/chats/${id}`);
+          toast('چت حذف شد');
+          telegram.render(container);
+        });
+      }
     });
+
     bindChannelSubTabs(container);
   },
 };
