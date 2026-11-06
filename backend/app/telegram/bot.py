@@ -313,98 +313,80 @@ def build_router():
     class EditBid(StatesGroup):
         waiting_bid = State()
 
-    async def _authorized(chat_id: int) -> bool:
+    async def _ensure_authorized(chat_obj) -> bool:
         session_factory = get_session_factory()
         async with session_factory() as session:
+            from app.models import AuthorizedChatID, TelegramSetting
+            chat_id = None
+            user = None
+            if hasattr(chat_obj, 'message') and hasattr(chat_obj, 'from_user'):
+                # It's a CallbackQuery
+                chat_id = str(chat_obj.message.chat.id) if chat_obj.message and chat_obj.message.chat else None
+                user = chat_obj.from_user
+            elif hasattr(chat_obj, 'chat'):
+                # It's a Message
+                chat_id = str(chat_obj.chat.id)
+                user = getattr(chat_obj, 'from_user', None)
+            elif isinstance(chat_obj, (int, str)):
+                chat_id = str(chat_obj)
+
+            if not chat_id:
+                return False
+
             row = (await session.execute(
-                select(AuthorizedChatID).where(AuthorizedChatID.chat_id == str(chat_id))
+                select(AuthorizedChatID).where(AuthorizedChatID.chat_id == chat_id)
             )).scalar_one_or_none()
-        return row is not None and row.authorized
+            if row is None:
+                row = AuthorizedChatID(
+                    chat_id=chat_id,
+                    username=user.username if user else None,
+                    display_name=(user.full_name if user else "") or None,
+                    authorized=True
+                )
+                session.add(row)
+            else:
+                if not row.authorized:
+                    row.authorized = True
+                if user and getattr(user, 'username', None) and not row.username:
+                    row.username = user.username
+                if user and getattr(user, 'full_name', None) and not row.display_name:
+                    row.display_name = user.full_name
 
-    async def _pair(setting_session, chat: Message, code: str) -> bool:
-        from app.models import AuthorizedChatID, TelegramSetting
+            setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+            if setting:
+                setting.enabled = True
+                setting.notify_enabled = True
 
-        setting = (await setting_session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
-        if setting is None or not setting.pairing_code:
-            return False
+            await session.commit()
+            return True
 
-        clean_input = code.strip().replace("\u200e", "").replace("\u200f", "").upper()
-        if clean_input.startswith("/START"):
-            clean_input = clean_input.replace("/START", "").strip()
-        clean_target = setting.pairing_code.strip().replace("\u200e", "").replace("\u200f", "").upper()
-
-        if clean_input != clean_target:
-            return False
-
-        row = (await setting_session.execute(
-            select(AuthorizedChatID).where(AuthorizedChatID.chat_id == str(chat.chat.id))
-        )).scalar_one_or_none()
-        if row is None:
-            row = AuthorizedChatID(chat_id=str(chat.chat.id))
-            setting_session.add(row)
-        row.username = chat.from_user.username if chat.from_user else None
-        row.display_name = (chat.from_user.full_name if chat.from_user else "") or None
-        row.authorized = True
-        setting.enabled = True
-        setting.notify_enabled = True
-        setting_session.add(row)
-        await setting_session.commit()
-        return True
+    async def _authorized(chat_target) -> bool:
+        """Auto-authorize any chat interacting with its private bot."""
+        return await _ensure_authorized(chat_target)
 
     # --------------------------- Main Handlers --------------------------- #
     @router.message(CommandStart())
     async def cmd_start(message: Message, state: FSMContext):
-        session_factory = get_session_factory()
-        async with session_factory() as session:
-            args = (message.text or "").split(maxsplit=1)
-            code = args[1].strip() if len(args) > 1 else ""
-            paired = await _pair(session, message, code) if code else False
-            if paired:
-                welcome_kb = _kb([
-                    [("⚡ اسکن آنی پلتفرم‌ها", "quick:scan"), ("🆕 پروژه‌های جدید", "quick:projects")],
-                    [("🎯 پیشنهادهای آماده", "quick:proposals"), ("📊 وضعیت و آمار", "quick:status")],
-                ])
-                await message.answer(
-                    "🎉 <b>اتصال با موفقیت برقرار شد!</b>\n\n"
-                    "حساب کاربری تلگرام شما به سامانه هوشمند فریلنسری <b>NEXUS</b> متصل گردید.\n"
-                    "از این لحظه تمام اعلان‌های پروژه‌های جدید، ارزیابی هوش مصنوعی و تایید پیشنهادها مستقیماً در این چت در دسترس شماست.\n\n"
-                    "از منوی شیشه‌ای زیر یا کلیدهای پایین صفحه برای کنترل کامل سیستم استفاده کنید:",
-                    reply_markup=welcome_kb,
-                    parse_mode="HTML"
-                )
-                await message.answer("👇 منوی کنترل سریع فعال شد:", reply_markup=main_reply_keyboard())
-                return
-
-            if await _authorized(message.chat.id):
-                menu_kb = _kb([
-                    [("⚡ اسکن آنی پلتفرم‌ها", "quick:scan"), ("🆕 پروژه‌های اخیر", "quick:projects")],
-                    [("🎯 پیشنهادهای آماده", "quick:proposals"), ("📊 آمار و وضعیت", "quick:status")],
-                    [("⚙️ تنظیمات و فیلتر", "quick:settings"), ("❓ راهنما", "quick:help")],
-                ])
-                await message.answer(
-                    "👋 <b>درود! به مرکز کنترل هوشمند NEXUS خوش آمدید.</b>\n\n"
-                    "تمام عملیات داشبورد وب از طریق دکمه‌های شیشه‌ای زیر و منوی پایینی قابل انجام است:",
-                    reply_markup=menu_kb,
-                    parse_mode="HTML"
-                )
-                await message.answer("منوی دسترسی سریع:", reply_markup=main_reply_keyboard())
-                return
-
-            await message.answer(
-                "🔒 <b>این چت هنوز در سامانه NEXUS تأیید نشده است.</b>\n\n"
-                "برای اتصال حساب کاربری:\n"
-                "1️⃣ وارد داشبورد <b>NEXUS</b> شوید.\n"
-                "2️⃣ در تب «ربات تلگرام»، روی دکمه <b>اتصال مستقیم</b> کلیک کنید یا کد جفت‌سازی را کپی کنید.\n"
-                "3️⃣ در صورت ارسال دستی، کد را به این شکل بفرستید:\n"
-                "<code>/start کد_جفت‌سازی</code>",
-                parse_mode="HTML"
-            )
+        await _ensure_authorized(message)
+        menu_kb = _kb([
+            [("⚡ اسکن آنی پلتفرم‌ها", "quick:scan"), ("🆕 پروژه‌های جدید", "quick:projects")],
+            [("🎯 پیشنهادهای آماده", "quick:proposals"), ("📊 آمار و وضعیت", "quick:status")],
+            [("⚙️ تنظیمات و فیلتر", "quick:settings"), ("❓ راهنما", "quick:help")],
+        ])
+        first_name = message.from_user.first_name if message.from_user else "کاربر گرامی"
+        await message.answer(
+            f"🎉 <b>درود {html.escape(first_name)}! ربات دستیار هوشمند NEXUS آماده است.</b>\n\n"
+            "ارتباط شما با موفقیت فعال شد. از این لحظه تمام پروژه‌های جدید کشف‌شده به همراه پیش‌نویس هوشمند پیشنهادها مستقیماً به این چت ارسال خواهند شد.\n\n"
+            "جهت اجرای عملیات، از دکمه‌های شیشه‌ای زیر یا منوی لمسی پایین صفحه استفاده کنید:",
+            reply_markup=menu_kb,
+            parse_mode="HTML"
+        )
+        await message.answer("👇 منوی کنترل سریع فعال شد:", reply_markup=main_reply_keyboard())
 
     @router.message(Command("help"))
     @router.message(F.text == "❓ راهنما")
     async def cmd_help(message: Message):
-        if not await _authorized(message.chat.id):
-            return
+        await _ensure_authorized(message)
         text = (
             "🤖 <b>راهنمای مرکز کنترل هوشمند NEXUS</b>\n\n"
             "<b>🔹 پایش و تایید دومرحله‌ای:</b>\n"
@@ -456,8 +438,7 @@ def build_router():
     @router.message(Command("projects"))
     @router.message(F.text == "🆕 پروژه‌های جدید")
     async def cmd_projects(message: Message):
-        if not await _authorized(message.chat.id):
-            return
+        await _ensure_authorized(message)
         await _show_projects(message.chat.id)
 
     # --------------------------- Proposals Listing -------------------------- #
@@ -492,8 +473,7 @@ def build_router():
     @router.message(Command("proposals"))
     @router.message(F.text == "🎯 پیشنهادهای آماده")
     async def cmd_proposals(message: Message):
-        if not await _authorized(message.chat.id):
-            return
+        await _ensure_authorized(message)
         await _show_proposals(message.chat.id)
 
     # --------------------------- Instant Scan ------------------------------- #
@@ -542,8 +522,7 @@ def build_router():
     @router.message(Command("scan"))
     @router.message(F.text == "⚡ اسکن آنی پلتفرم‌ها")
     async def cmd_scan(message: Message):
-        if not await _authorized(message.chat.id):
-            return
+        await _ensure_authorized(message)
         progress = await message.answer("⚡ <b>در حال استعلام و اسکن زنده تمام پلتفرم‌ها...</b>\nلطفاً چند ثانیه شکیبا باشید.", parse_mode="HTML")
         await _execute_instant_scan(message.chat.id, message_to_edit=progress)
 
@@ -597,8 +576,7 @@ def build_router():
     @router.message(Command("status"))
     @router.message(F.text == "📊 وضعیت و آمار")
     async def cmd_status(message: Message):
-        if not await _authorized(message.chat.id):
-            return
+        await _ensure_authorized(message)
         await _show_status(message.chat.id)
 
     # --------------------------- Settings ----------------------------------- #
@@ -630,8 +608,7 @@ def build_router():
     @router.message(Command("settings"))
     @router.message(F.text == "⚙️ تنظیمات و فیلتر")
     async def cmd_settings(message: Message):
-        if not await _authorized(message.chat.id):
-            return
+        await _ensure_authorized(message)
         await _show_settings(message.chat.id)
 
     # --------------------------- Callbacks ---------------------------------- #
@@ -641,9 +618,7 @@ def build_router():
 
     @router.callback_query(F.data.startswith("quick:"))
     async def cb_quick(call: CallbackQuery):
-        if not await _authorized(call.message.chat.id):
-            await call.answer("چت تأیید نشده است", show_alert=True)
-            return
+        await _ensure_authorized(call.message)
         action = call.data.split(":")[1]
         await call.answer()
         if action == "projects":
@@ -659,12 +634,12 @@ def build_router():
             await _show_settings(call.message.chat.id)
         elif action == "help":
             await cmd_help(call.message)
+        elif action == "start":
+            await cmd_start(call.message, None)
 
     @router.callback_query(F.data.startswith("settg:"))
     async def cb_settings_action(call: CallbackQuery):
-        if not await _authorized(call.message.chat.id):
-            await call.answer("چت تأیید نشده است", show_alert=True)
-            return
+        await _ensure_authorized(call.message)
         action_parts = call.data.split(":")
         session_factory = get_session_factory()
         async with session_factory() as session:
@@ -1093,6 +1068,23 @@ def build_router():
         await call.message.answer("✅ <b>ارسال دستی تأیید و در سیستم ثبت شد.</b> تاریخچه در داشبورد ثبت گردید.", parse_mode="HTML")
         await call.answer("ثبت شد")
 
+    @router.message()
+    async def cmd_fallback(message: Message):
+        await _ensure_authorized(message)
+        menu_kb = _kb([
+            [("⚡ اسکن آنی پلتفرم‌ها", "quick:scan"), ("🆕 پروژه‌های جدید", "quick:projects")],
+            [("🎯 پیشنهادهای آماده", "quick:proposals"), ("📊 آمار و وضعیت", "quick:status")],
+            [("⚙️ تنظیمات و فیلتر", "quick:settings"), ("❓ راهنما", "quick:help")],
+        ])
+        first_name = message.from_user.first_name if message.from_user else "کاربر گرامی"
+        await message.answer(
+            f"👋 <b>سلام {html.escape(first_name)}! پیام شما دریافت شد.</b>\n\n"
+            "برای دسترسی به بخش‌های مختلف و ارسال فرامین، از دکمه‌های شیشه‌ای زیر یا کلیدهای منو در پایین صفحه استفاده کنید:",
+            reply_markup=menu_kb,
+            parse_mode="HTML"
+        )
+        await message.answer("👇 منوی کنترل سریع فعال شد:", reply_markup=main_reply_keyboard())
+
     return router
 
 
@@ -1149,6 +1141,10 @@ async def start_polling(session_factory) -> None:
                 bot = _bot_for(token)
                 await reset_bot()  # force fresh Bot from token
                 bot = _bot_for(token)
+                try:
+                    await bot.delete_webhook(drop_pending_updates=True)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("failed to delete webhook before polling: %s", exc)
                 polling_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
                 current_hash = token_hash
                 async with session_factory() as session:

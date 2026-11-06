@@ -124,7 +124,7 @@ async def send_test(body: dict, db: AsyncSession = Depends(get_db), user: User =
     chat_id = body.get("chat_id")
     targets = [str(chat_id)] if chat_id else [c.chat_id for c in chats]
     if not targets:
-        raise HTTPException(400, "هیچ چت تأییدشده‌ای وجود ندارد؛ ابتدا با کد جفت‌سازی یا دکمه اتصال، چت را متصل کنید.")
+        raise HTTPException(400, "هیچ چت فعالی متصل نشده است؛ ابتدا در تلگرام وارد ربات خود شوید و دکمه Start را بزنید تا چت شما به‌صورت خودکار متصل شود.")
     
     token = bot_service.decrypt_token(s)
     text = body.get("message") or (

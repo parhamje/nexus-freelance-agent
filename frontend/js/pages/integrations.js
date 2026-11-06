@@ -191,7 +191,6 @@ export const telegram = {
     const isConnected = s.connection_status === 'connected';
     const isError = s.connection_status === 'error';
     const botUser = s.bot_username ? s.bot_username.replace(/^@/, '') : '';
-    const deepLinkUrl = botUser && s.pairing_code ? `https://t.me/${botUser}?start=${encodeURIComponent(s.pairing_code)}` : '';
     const activeChatsCount = (chats.items || []).filter(c => c.authorized).length;
 
     container.innerHTML = `
@@ -209,7 +208,7 @@ export const telegram = {
             </div>
             <div>
               <div class="flex items-center gap-2.5">
-                <h2 class="text-lg font-bold tracking-tight">مرکز ارتباط و اعلان‌های هوشمند تلگرام</h2>
+                <h2 class="text-lg font-bold tracking-tight">مرکز ارتباط و ربات اختصاصی تلگرام</h2>
                 ${isConnected ? `
                   <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -255,117 +254,10 @@ export const telegram = {
         </div>
       </div>
 
-      <!-- Main Two Columns Studio -->
+      <!-- Main Studio Grid -->
       <div class="grid lg:grid-cols-12 gap-5 mb-6">
 
-        <!-- Column 1: Fast Pairing & Telegram Connect (5 cols) -->
-        <div class="lg:col-span-5 space-y-4">
-          <div class="card p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="font-bold text-sm flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                  <span class="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center">
-                    ${icon('key', 'w-4 h-4')}
-                  </span>
-                  <span>اتصال سریع و جفت‌سازی (Quick Pair)</span>
-                </h3>
-                <button id="regen-code" class="btn text-xs py-1 px-2.5 flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-sky-500 transition" title="تولید کد جدید">
-                  ${icon('refresh', 'w-3.5 h-3.5')}
-                  <span>کد جدید</span>
-                </button>
-              </div>
-
-              <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-                کد اختصاصی زیر برای احراز هویت چت شما در تلگرام است. برای اتصال ۱-ثانیه‌ای، کافیست روی دکمه آبی زیر کلیک کنید تا ربات تلگرام با کد آماده باز شود.
-              </p>
-
-              <!-- Code Display Box -->
-              <div class="p-4 rounded-xl bg-slate-900 text-white border border-slate-800 relative overflow-hidden group shadow-inner mb-4">
-                <div class="absolute -top-10 -end-10 w-24 h-24 bg-sky-500/10 rounded-full blur-xl"></div>
-                <div class="text-[11px] text-slate-400 mb-1 flex items-center justify-between">
-                  <span>کد جفت‌سازی یکتا</span>
-                  <span class="text-[10px] text-teal-400 font-mono">Telegram URL-Safe</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <div class="text-2xl font-black font-mono tracking-wider text-teal-300 select-all" id="pairing-code">
-                    ${esc(s.pairing_code || 'NX-00000')}
-                  </div>
-                  <button id="copy-code-btn" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1.5 text-xs" title="کپی کد">
-                    ${icon('copy', 'w-4 h-4')}
-                    <span id="copy-text">کپی</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- 1-Click Deep Link Button -->
-              ${botUser ? `
-                <a href="${deepLinkUrl}" target="_blank" id="tg-deep-link" class="w-full mb-3 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white font-bold text-sm shadow-md shadow-sky-500/25 transition transform active:scale-[0.99]">
-                  ${icon('telegram', 'w-5 h-5')}
-                  <span>اتصال آنی با تلگرام (1-Click Pair)</span>
-                  ${icon('external', 'w-4 h-4 opacity-80')}
-                </a>
-              ` : `
-                <button disabled class="w-full mb-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-400 font-bold text-sm cursor-not-allowed">
-                  ${icon('telegram', 'w-5 h-5')}
-                  <span>ابتدا توکن معتبر ربات را ذخیره کنید</span>
-                </button>
-              `}
-
-              <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
-                <span>دستور مستقیم در ربات:</span>
-                <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-slate-700 dark:text-teal-400" id="cmd-preview">/start ${esc(s.pairing_code || '')}</code>
-              </div>
-            </div>
-
-            <!-- BotFather Guide Accordion -->
-            <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800">
-              <button id="guide-toggle-btn" class="w-full flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 transition">
-                <span class="flex items-center gap-1.5">
-                  ${icon('sparkles', 'w-3.5 h-3.5 text-teal-500')}
-                  <span>راهنمای ۳ مرحله‌ای ساخت ربات در BotFather</span>
-                </span>
-                <span id="guide-chevron">${icon('chevronDown', 'w-3.5 h-3.5')}</span>
-              </button>
-              <div id="guide-content" class="hidden mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-2 leading-relaxed">
-                <div class="flex items-start gap-2">
-                  <span class="w-5 h-5 rounded-full bg-teal-500/15 text-teal-500 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">۱</span>
-                  <div>در تلگرام به آیدی <a href="https://t.me/BotFather" target="_blank" class="text-sky-500 underline font-semibold">@BotFather</a> بروید و دستور <code class="font-mono bg-white dark:bg-slate-800 px-1 rounded">/newbot</code> را ارسال کنید.</div>
-                </div>
-                <div class="flex items-start gap-2">
-                  <span class="w-5 h-5 rounded-full bg-teal-500/15 text-teal-500 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">۲</span>
-                  <div>یک نام دلخواه و سپس یک نام کاربری (که با <code class="font-mono">bot</code> ختم شود) انتخاب کنید.</div>
-                </div>
-                <div class="flex items-start gap-2">
-                  <span class="w-5 h-5 rounded-full bg-teal-500/15 text-teal-500 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">۳</span>
-                  <div>توکن API ارائه‌شده را کپی کرده و در فیلد روبرو ذخیره نمایید.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Manual Chat Authorization Box -->
-          <div class="card p-4 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-            <div class="flex items-center justify-between mb-2">
-              <h4 class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                ${icon('link', 'w-3.5 h-3.5 text-teal-500')}
-                <span>افزودن و تأیید مستقیم شناسه چت (Manual Add)</span>
-              </h4>
-            </div>
-            <p class="text-[11px] text-slate-500 mb-3">اگر Chat ID عددی خود را دارید، می‌توانید بدون نیاز به ارسال کد، چت را مستقیماً ثبت و فعال کنید.</p>
-            <div class="space-y-2">
-              <div class="grid grid-cols-2 gap-2">
-                <input id="manual-chat-id" class="inp text-xs py-1.5 font-mono" placeholder="Chat ID (مثال: 98124821)">
-                <input id="manual-chat-name" class="inp text-xs py-1.5" placeholder="نام یا عنوان (اختیاری)">
-              </div>
-              <button id="manual-chat-submit" class="w-full btn text-xs py-1.5 flex items-center justify-center gap-1.5 hover:border-teal-500">
-                ${icon('check', 'w-3.5 h-3.5 text-teal-600')}
-                <span>ثبت و فعال‌سازی فوری چت</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Column 2: Credentials & Engine Controls (7 cols) -->
+        <!-- Column 1: Credentials & Engine Controls (7 cols) -->
         <div class="lg:col-span-7 space-y-4">
           <div class="card p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
             <div class="flex items-center justify-between">
@@ -383,7 +275,7 @@ export const telegram = {
             <!-- Token Input with Show/Hide Toggle -->
             <div>
               <label class="lbl flex items-center justify-between">
-                <span>توکن اختصاصی ربات (HTTP API Token)</span>
+                <span>توکن اختصاصی ربات (BotFather HTTP API Token)</span>
                 ${s.has_token ? `
                   <span class="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
                     ${icon('check', 'w-3 h-3')} توکن ذخیره شده (${esc(s.bot_token_masked)})
@@ -402,7 +294,7 @@ export const telegram = {
             <div class="flex flex-wrap items-center gap-2 pt-1">
               <button class="btn-action-primary" id="tg-save">
                 ${icon('check', 'w-3.5 h-3.5')}
-                <span>ذخیره و اعتبارسنجی</span>
+                <span>ذخیره و فعال‌سازی ربات</span>
               </button>
               <button class="btn-action" id="tg-test">
                 ${icon('activity', 'w-3.5 h-3.5 text-teal-600')}
@@ -427,7 +319,7 @@ export const telegram = {
               <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
                 <div>
                   <div class="font-semibold text-slate-800 dark:text-slate-200">سرویس ربات تلگرام (Background Polling)</div>
-                  <div class="text-[11px] text-slate-500">فعال بودن ربات جهت دریافت دستورات (/projects, /status) و دکمه‌های تایید پیشنهاد</div>
+                  <div class="text-[11px] text-slate-500">پاسخ‌گویی به فرامین (/projects, /scan, /status) و دکمه‌های تایید و صدور پیشنهاد</div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="tg-enabled" class="sr-only peer" ${s.enabled ? 'checked' : ''}>
@@ -465,9 +357,76 @@ export const telegram = {
             </div>
           </div>
         </div>
+
+        <!-- Column 2: Easy 3-Step Setup Guide & Direct Telegram Link (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="card p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between h-full">
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-500 flex items-center justify-center">
+                  ${icon('sparkles', 'w-4 h-4')}
+                </span>
+                <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100">
+                  اتصال خودکار و بدون دردسر (۳۰ ثانیه)
+                </h3>
+              </div>
+
+              <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+                با توجه به اینکه هر کاربر ربات اختصاصی خودش را می‌سازد، نیازی به وارد کردن Chat ID یا کد فعال‌سازی نیست. کافیست ۳ مرحله زیر را انجام دهید:
+              </p>
+
+              <!-- Step 1-2-3 Visual List -->
+              <div class="space-y-3 text-xs leading-relaxed">
+                <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 flex items-start gap-3">
+                  <span class="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center font-black text-xs shrink-0 mt-0.5">۱</span>
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">ساخت ربات در BotFather</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">در تلگرام به <a href="https://t.me/BotFather" target="_blank" class="text-sky-500 font-bold hover:underline">@BotFather</a> بروید و دستور <code class="font-mono bg-white dark:bg-slate-800 px-1 rounded text-teal-400">/newbot</code> را ارسال کنید.</div>
+                  </div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 flex items-start gap-3">
+                  <span class="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center font-black text-xs shrink-0 mt-0.5">۲</span>
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">ذخیره توکن در این صفحه</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">توکن دریافتی را در کادر روبرو قرار داده و دکمه «ذخیره و فعال‌سازی ربات» را بزنید.</div>
+                  </div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 flex items-start gap-3">
+                  <span class="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center font-black text-xs shrink-0 mt-0.5">۳</span>
+                  <div>
+                    <div class="font-bold text-slate-800 dark:text-slate-200">شروع چت با ربات (Start)</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">وارد ربات خود شوید و دکمه <b>Start</b> را لمس کنید؛ حساب شما به‌صورت خودکار متصل می‌شود!</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Direct Action Button -->
+              ${botUser ? `
+                <a href="https://t.me/${botUser}" target="_blank" class="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-sm shadow-md shadow-teal-500/25 transition transform active:scale-[0.99] mt-4">
+                  ${icon('telegram', 'w-5 h-5')}
+                  <span>باز کردن ربات در تلگرام (@${esc(botUser)})</span>
+                  ${icon('external', 'w-4 h-4 opacity-75')}
+                </a>
+              ` : `
+                <a href="https://t.me/BotFather" target="_blank" class="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition mt-4">
+                  ${icon('telegram', 'w-4 h-4 text-sky-400')}
+                  <span>باز کردن @BotFather برای ساخت ربات</span>
+                  ${icon('external', 'w-3.5 h-3.5 opacity-60')}
+                </a>
+              `}
+            </div>
+
+            <!-- Zero Friction Notice -->
+            <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              💡 <b>کنترل دوطرفه و کامل:</b> تمامی کارهایی که در این پنل انجام می‌دهید (اسکن لحظه‌ای، فهرست پروژه‌ها، تولید هوشمند پیشنهاد با AI، ویرایش قیمت و تایید ارسال) از طریق دکمه‌های شیشه‌ای مستقیماً داخل تلگرام نیز در دسترس شماست.
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Full-Width Bottom Section: Authorized Chats Manager -->
+      <!-- Full-Width Bottom Section: Connected Chats -->
       <div class="card p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800">
           <div>
@@ -475,10 +434,10 @@ export const telegram = {
               <span class="w-6 h-6 rounded-md bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
                 ${icon('user', 'w-3.5 h-3.5')}
               </span>
-              <span>چت‌ها و کانال‌های مجاز (${chats.items.length})</span>
+              <span>چت‌های متصل به ربات (${chats.items.length})</span>
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              لیست کاربران یا گروه‌هایی که با موفقیت جفت شده و حق دریافت پیام و تایید ارسال پیشنهادها را دارند.
+              لیست کاربران یا گروه‌هایی که با ارسال پیام به ربات متصل شده‌اند و اعلان‌ها برای آنها ارسال می‌گردد.
             </p>
           </div>
         </div>
@@ -528,13 +487,19 @@ export const telegram = {
           </div>
         ` : `
           <div class="p-8 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-            <div class="w-12 h-12 rounded-full bg-sky-500/10 text-sky-500 flex items-center justify-center mx-auto mb-3">
+            <div class="w-12 h-12 rounded-full bg-teal-500/10 text-teal-500 flex items-center justify-center mx-auto mb-3">
               ${icon('telegram', 'w-6 h-6')}
             </div>
-            <h4 class="text-xs font-bold text-slate-700 dark:text-slate-200">هنوز هیچ چتی جفت نشده است</h4>
+            <h4 class="text-xs font-bold text-slate-700 dark:text-slate-200">هنوز هیچ چتی به ربات متصل نشده است</h4>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-              برای شروع دریافت اعلان‌ها، در تلگرام وارد ربات شوید و دستور <code class="font-mono text-teal-500">/start ${esc(s.pairing_code || '')}</code> را بفرستید یا از دکمه اتصال آنی در بالای صفحه استفاده کنید.
+              پس از ذخیره توکن، کافیست وارد ربات در تلگرام شوید و دکمه Start را لمس کنید تا حسابتان فوراً متصل و شناسایی شود.
             </p>
+            ${botUser ? `
+              <a href="https://t.me/${esc(botUser)}" target="_blank" class="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition">
+                ${icon('telegram', 'w-4 h-4')}
+                <span>باز کردن ربات در تلگرام</span>
+              </a>
+            ` : ''}
           </div>
         `}
       </div>
@@ -565,67 +530,6 @@ export const telegram = {
         isVisible = !isVisible;
         tokenInput.type = isVisible ? 'text' : 'password';
         eyeIconWrap.innerHTML = icon(isVisible ? 'eyeOff' : 'eye', 'w-4 h-4');
-      };
-    }
-
-    // BotFather Guide Accordion
-    const guideToggle = container.querySelector('#guide-toggle-btn');
-    const guideContent = container.querySelector('#guide-content');
-    const guideChevron = container.querySelector('#guide-chevron');
-    if (guideToggle && guideContent) {
-      guideToggle.onclick = () => {
-        guideContent.classList.toggle('hidden');
-        if (guideChevron) {
-          guideChevron.style.transform = guideContent.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
-          guideChevron.style.transition = 'transform 0.2s ease';
-        }
-      };
-    }
-
-    // Copy Pairing Code
-    const copyBtn = container.querySelector('#copy-code-btn');
-    const copyText = container.querySelector('#copy-text');
-    if (copyBtn && s.pairing_code) {
-      copyBtn.onclick = async () => {
-        try {
-          await navigator.clipboard.writeText(s.pairing_code);
-          if (copyText) copyText.textContent = 'کپی شد!';
-          toast('کد جفت‌سازی در کلیپ‌بورد کپی شد', 'success');
-          setTimeout(() => { if (copyText) copyText.textContent = 'کپی'; }, 2000);
-        } catch {
-          toast('خطا در کپی خودکار', 'error');
-        }
-      };
-    }
-
-    // Regenerate Code
-    const regenBtn = container.querySelector('#regen-code');
-    if (regenBtn) {
-      regenBtn.onclick = async () => {
-        const r = await api.post('/telegram/pairing-code');
-        s.pairing_code = r.pairing_code;
-        const codeEl = container.querySelector('#pairing-code');
-        const cmdEl = container.querySelector('#cmd-preview');
-        const deepLinkEl = container.querySelector('#tg-deep-link');
-        if (codeEl) codeEl.textContent = r.pairing_code;
-        if (cmdEl) cmdEl.textContent = `/start ${r.pairing_code}`;
-        if (deepLinkEl && botUser) {
-          deepLinkEl.href = `https://t.me/${botUser}?start=${encodeURIComponent(r.pairing_code)}`;
-        }
-        toast('کد جفت‌سازی جدید تولید شد', 'success');
-      };
-    }
-
-    // Manual Chat Add
-    const manualSubmit = container.querySelector('#manual-chat-submit');
-    if (manualSubmit) {
-      manualSubmit.onclick = async () => {
-        const cid = container.querySelector('#manual-chat-id')?.value.trim();
-        const cname = container.querySelector('#manual-chat-name')?.value.trim();
-        if (!cid) return toast('لطفاً Chat ID را وارد کنید', 'error');
-        await api.post('/telegram/chats', { chat_id: cid, display_name: cname || null });
-        toast('چت با موفقیت ثبت و تأیید شد', 'success');
-        telegram.render(container);
       };
     }
 
