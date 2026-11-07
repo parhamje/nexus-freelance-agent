@@ -123,25 +123,42 @@ def main_reply_keyboard():
 
 
 def project_card(project, analysis=None, platform_name: str = "") -> str:
-    lines = [
-        f"<b>🆕 پروژه جدید - {html.escape(platform_name or 'فریلنسری')}</b>",
-        f"📌 <b>{html.escape(project.title[:120])}</b>",
-        ""
-    ]
-    budget = format_toman(project.budget_min) if project.budget_min else "نامشخص"
+    plat = platform_name.capitalize() if platform_name else "فریلنسری"
+    budget = format_toman(project.budget_min) if project.budget_min else "توافقی"
     budget_max = format_toman(project.budget_max) if project.budget_max else None
-    lines.append(f"💰 بودجه: <b>{budget}" + (f" تا {budget_max}</b>" if budget_max else "</b>"))
+    budget_str = f"{budget} تا {budget_max}" if budget_max else budget
+
+    lines = [
+        f"🌐 <b>پروژه جدید | {html.escape(plat)}</b>",
+        f"📌 <b>{html.escape(project.title[:140])}</b>",
+        "────────────────────",
+        f"💵 بودجه اعلامی: <b>{budget_str}</b>",
+    ]
     if project.deadline:
-        lines.append(f"⏳ مهلت: {project.deadline.strftime('%Y-%m-%d')}")
+        lines.append(f"⏳ مهلت تحویل: <b>{project.deadline.strftime('%Y-%m-%d')}</b>")
     if project.skills:
-        lines.append("🛠 مهارت‌ها: " + html.escape("، ".join(project.skills[:6])))
+        tags = " ".join([f"#{s.strip().replace(' ', '_')}" for s in project.skills[:5] if s.strip()])
+        if tags:
+            lines.append(f"🛠 مهارت‌ها: {html.escape(tags)}")
+
     if analysis is not None:
+        score = analysis.match_score or 0
+        if score >= 80:
+            score_badge = f"🟢 <b>عالی ({score}٪)</b>"
+        elif score >= 60:
+            score_badge = f"🟡 <b>مناسب ({score}٪)</b>"
+        else:
+            score_badge = f"⚪ <b>معمولی ({score}٪)</b>"
+
         lines += [
-            "",
-            f"🎯 ارزیابی هوش مصنوعی: <b>{analysis.match_score}/100</b>",
-            f"📊 تحلیل کوتاه: {html.escape((analysis.summary or '')[:350])}",
-            "💵 پیشنهاد متوازن: <b>" + _bid_line(analysis.balanced_bid) + "</b>"
+            "────────────────────",
+            f"🎯 ارزیابی هوش مصنوعی: {score_badge}",
         ]
+        if analysis.summary:
+            lines.append(f"📊 تحلیل کوتاه: <i>{html.escape(analysis.summary[:300])}</i>")
+        if analysis.balanced_bid:
+            lines.append(f"⚖️ پیشنهاد متوازن سیستم: <b>{_bid_line(analysis.balanced_bid)}</b>")
+
     return "\n".join(lines)
 
 
@@ -366,22 +383,17 @@ def build_router():
 
     # --------------------------- Main Handlers --------------------------- #
     @router.message(CommandStart())
-    async def cmd_start(message: Message, state: FSMContext):
+    async def cmd_start(message: Message, state: FSMContext = None):
         await _ensure_authorized(message)
-        menu_kb = _kb([
-            [("⚡ اسکن آنی پلتفرم‌ها", "quick:scan"), ("🆕 پروژه‌های جدید", "quick:projects")],
-            [("🎯 پیشنهادهای آماده", "quick:proposals"), ("📊 آمار و وضعیت", "quick:status")],
-            [("⚙️ تنظیمات و فیلتر", "quick:settings"), ("❓ راهنما", "quick:help")],
-        ])
         first_name = message.from_user.first_name if message.from_user else "کاربر گرامی"
         await message.answer(
-            f"🎉 <b>درود {html.escape(first_name)}! ربات دستیار هوشمند NEXUS آماده است.</b>\n\n"
-            "ارتباط شما با موفقیت فعال شد. از این لحظه تمام پروژه‌های جدید کشف‌شده به همراه پیش‌نویس هوشمند پیشنهادها مستقیماً به این چت ارسال خواهند شد.\n\n"
-            "جهت اجرای عملیات، از دکمه‌های شیشه‌ای زیر یا منوی لمسی پایین صفحه استفاده کنید:",
-            reply_markup=menu_kb,
+            f"🎉 <b>درود {html.escape(first_name)}! دستیار هوشمند فریلنسری NEXUS آماده است.</b>\n\n"
+            "ارتباط شما با سامانه برقرار و فعال گردید.\n"
+            "از این پس پروژه‌های متناسب با تخصص شما به همراه پیش‌نویس آماده پیشنهاد به این چت ارسال خواهند شد.\n\n"
+            "برای شروع و صدور فرامین، از کلیدهای منوی پایین صفحه استفاده نمایید.",
+            reply_markup=main_reply_keyboard(),
             parse_mode="HTML"
         )
-        await message.answer("👇 منوی کنترل سریع فعال شد:", reply_markup=main_reply_keyboard())
 
     @router.message(Command("help"))
     @router.message(F.text == "❓ راهنما")
@@ -413,6 +425,9 @@ def build_router():
         from app.models import Platform, Project, ProjectAnalysis, TelegramSetting
         session_factory = get_session_factory()
         async with session_factory() as session:
+            setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+            token = decrypt_token(setting) if setting and setting.bot_token_encrypted else ""
+
             rows = (await session.execute(
                 select(Project, Platform)
                 .join(Platform, Project.platform_id == Platform.id)
@@ -420,11 +435,8 @@ def build_router():
                 .order_by(Project.first_discovered_at.desc()).limit(5)
             )).all()
             if not rows:
-                await send_text("", str(target_chat_id), "📌 در حال حاضر پروژه‌ای در این بخش یافت نشد.")
+                await send_text(token, str(target_chat_id), "📭 <b>پروژه‌ای در این بخش یافت نشد.</b>\nبرای بررسی زنده پروژه‌ها از دکمه «⚡ اسکن آنی پلتفرم‌ها» در منوی پایین استفاده کنید.")
                 return
-
-            setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
-            token = decrypt_token(setting) if setting and setting.bot_token_encrypted else ""
 
             for project, platform in rows:
                 analysis = (await session.execute(
@@ -446,6 +458,9 @@ def build_router():
         from app.models import Proposal, ProposalVersion, Project, Platform, TelegramSetting
         session_factory = get_session_factory()
         async with session_factory() as session:
+            setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+            token = decrypt_token(setting) if setting and setting.bot_token_encrypted else ""
+
             rows = (await session.execute(
                 select(Proposal, ProposalVersion, Project, Platform)
                 .join(ProposalVersion, Proposal.current_version_id == ProposalVersion.id)
@@ -455,7 +470,7 @@ def build_router():
                 .order_by(Proposal.updated_at.desc()).limit(5)
             )).all()
             if not rows:
-                await send_text("", str(target_chat_id), "🎯 در حال حاضر پیش‌نویس پیشنهادی آماده ارسال نیست.")
+                await send_text(token, str(target_chat_id), "📭 <b>پیش‌نویس آماده‌ای برای ارسال وجود ندارد.</b>\nجهت تولید پیشنهاد هوشمند، پروژه‌های منوی «🆕 پروژه‌های جدید» را بررسی کنید.")
                 return
 
             setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
@@ -1071,19 +1086,13 @@ def build_router():
     @router.message()
     async def cmd_fallback(message: Message):
         await _ensure_authorized(message)
-        menu_kb = _kb([
-            [("⚡ اسکن آنی پلتفرم‌ها", "quick:scan"), ("🆕 پروژه‌های جدید", "quick:projects")],
-            [("🎯 پیشنهادهای آماده", "quick:proposals"), ("📊 آمار و وضعیت", "quick:status")],
-            [("⚙️ تنظیمات و فیلتر", "quick:settings"), ("❓ راهنما", "quick:help")],
-        ])
         first_name = message.from_user.first_name if message.from_user else "کاربر گرامی"
         await message.answer(
-            f"👋 <b>سلام {html.escape(first_name)}! پیام شما دریافت شد.</b>\n\n"
-            "برای دسترسی به بخش‌های مختلف و ارسال فرامین، از دکمه‌های شیشه‌ای زیر یا کلیدهای منو در پایین صفحه استفاده کنید:",
-            reply_markup=menu_kb,
+            f"👋 <b>درود {html.escape(first_name)}!</b>\n\n"
+            "پیام شما دریافت شد. جهت اجرای عملیات یا دسترسی به بخش‌های مختلف، از کلیدهای منوی پایین صفحه استفاده نمایید.",
+            reply_markup=main_reply_keyboard(),
             parse_mode="HTML"
         )
-        await message.answer("👇 منوی کنترل سریع فعال شد:", reply_markup=main_reply_keyboard())
 
     return router
 
@@ -1092,12 +1101,28 @@ def _proposal_text(version) -> str:
     if version is None:
         return "نسخه‌ای موجود نیست."
     q = version.quality_score
-    q_line = f"{q}/100" if q is not None else "—"
-    warn = " ⚠️ (زیر حد آستانه)" if q is not None and q < 75 else ""
+    q_badge = f"{q}/100" if q is not None else "—"
+    if q is not None and q >= 85:
+        q_badge += " 🟢 (عالی)"
+    elif q is not None and q >= 70:
+        q_badge += " 🟡 (مطلوب)"
+    elif q is not None:
+        q_badge += " ⚠️ (نیازمند بررسی)"
+
+    strat_fa = {
+        "aggressive": "تهاجمی (رقابتی)",
+        "balanced": "متوازن (استاندارد)",
+        "premium": "پرمیوم (کیفیت بالا)",
+    }.get(version.strategy, version.strategy or "متوازن")
+
     return (
-        f"<b>📝 پیشنهاد (نسخه {version.version_no} - {version.strategy})</b>\n"
-        f"💵 قیمت: {format_toman(version.price)} | ⏳ تحویل: {version.delivery_days} روز\n"
-        f"🏁 کیفیت: {q_line}{warn} | 📏 {version.word_count} کلمه\n\n"
+        f"📋 <b>پیش‌نویس پیشنهاد (نسخه {version.version_no} - {strat_fa})</b>\n"
+        "────────────────────\n"
+        f"💰 مبلغ پیشنهادی: <b>{format_toman(version.price)}</b>\n"
+        f"⏱ مدت زمان تحویل: <b>{version.delivery_days} روز</b>\n"
+        f"📊 نمره کیفیت متن: <b>{q_badge}</b> | 📏 <b>{version.word_count} کلمه</b>\n"
+        "────────────────────\n"
+        f"📝 <b>متن آماده ارسال:</b>\n\n"
         f"{html.escape(version.content)}"
     )
 
