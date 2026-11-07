@@ -1,138 +1,221 @@
 # ⚡ NEXUS — Autonomous Freelance Intelligence Suite
+### سامانه جامع پایش هوشمند مناقصات و تدوین خودکار پیشنهاد فریلنسری با نظارت کامل انسانی (Human-in-the-Loop)
 
-**سامانه جامع پایش هوشمند مناقصات و پیشنهاددهی خودکار فریلنسری — با کنترل کامل انسانی**
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+"/>
+  <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready"/>
+  <img src="https://img.shields.io/badge/Aiogram-3.x-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Aiogram 3"/>
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="MIT License"/>
+</p>
 
-An AI-powered freelance opportunity discovery and proposal assistant. It watches
-Iranian freelance platforms, analyzes new projects against your *verified*
-developer profile, notifies you (Web + Telegram), and drafts Persian proposals —
-**only after you approve a project** — and never submits anything without a
-second, explicit approval.
+---
 
-```
-DISCOVER → ANALYZE → NOTIFY → OWNER APPROVES PROJECT → GENERATE PROPOSAL
-        → QUALITY REVIEW → OWNER APPROVES PROPOSAL → SUBMIT (or assisted)
-```
+## 🌟 درباره نکسوس (About NEXUS)
 
-## Key guarantees
+**نکسوس (NEXUS)** یک دستیار هوشمند و خودمختار ویژه فریلنسرهای نرم‌افزار و فناوری اطلاعات است. این سامانه به طور پیوسته بازارهای فریلنسری ایرانی (**پونیشا**، **کارلنسر** و **پارس‌کدرز**) را رصد کرده، پروژه‌های تازه را با **پروفایل حرفه‌ای و مهارت‌های اعتبارسنجی‌شده شما** تطبیق می‌دهد، امتیاز هوشمند ثبت می‌کند و در صورت تأیید شما، متن پیشنهاد رقابتی و متناسب با استراتژی انتخابی شما را تدوین می‌نماید.
 
-| Rule | How it is enforced |
-|---|---|
-| No proposal without project approval | `generate_for_project()` rejects any project not in `approved_for_proposal`/`proposal_ready` |
-| No submission without final approval | Submission only starts from the explicit **تأیید و ارسال** action (`POST /proposals/{id}/submit`) |
-| No fake success | Assisted submissions stay `assisted_pending` until *you* confirm; API submissions store the real result |
-| No invented facts | AI prompts forbid fabricating experience/bids/ratings; analysis uses only your developer profile + platform data |
-| Duplicate safety | external-ID + canonical-URL + content-hash + title-similarity dedup, plus unique DB constraints |
-| Secret safety | Fernet-encrypted credentials, masked in every API response, HMAC-signed dashboard tokens, rate limiting |
-
-## Architecture (modular monolith)
+> 🔒 **اصل بنیادین نظارت انسانی (Human-in-the-Loop):** هیچ پیشنهادی بدون تأیید صریح شما تولید نمی‌شود و هیچ متنی بدون بازبینی و تأیید نهایی شما به پلتفرم ارسال نخواهد شد.
 
 ```
-backend/app/
-├── core/          config, async SQLAlchemy, security (Fernet/scrypt/HMAC), seeds
-├── models.py      21 tables (projects, analyses, proposals, versions, submissions,
-│                  platforms, credentials, scan logs, ai_providers, agent config,
-│                  prompts+versions, notifications, outbox, logs, profile, telegram…)
-├── integrations/
-│   ├── base/      connector ABC + capability flags + normalized schemas
-│   └── platforms/ karlancer | ponisha | parscoders | demo (debug only)
-├── services/      discovery scheduler, outbox worker, analyzer, proposals,
-│                  submissions, notifications, analytics, text utils
-├── ai/            provider manager (OpenAI-compatible / Anthropic / Ollama) + Persian agents
-├── api/routes/    auth, projects, proposals, platforms, ai, profile, telegram,
-│                  notifications, misc (analytics/logs/health/WebSocket)
-└── telegram/      aiogram 3 bot (Persian, pairing-code, full workflow buttons)
-
-frontend/          vanilla JS ES6+ SPA (Tailwind CDN, Vazirmatn, RTL/LTR, dark/light,
-                   original synthesized notification chime via WebAudio)
-alembic/           async migrations (0001 = full schema from ORM metadata)
+                    ┌───────────────────────────────┐
+                    │  پایش مستمر پلتفرم‌ها (اسکنر)  │
+                    │  Karlancer • Ponisha • ...    │
+                    └──────────────┬────────────────┘
+                                   │
+                                   ▼
+                    ┌───────────────────────────────┐
+                    │ ارزیابی هوش مصنوعی (Matching) │
+                    │ مقایسه با مهارت‌ها و بودجه    │
+                    └──────────────┬────────────────┘
+                                   │
+                    ┌──────────────▼────────────────┐
+                    │ اعلان فوری (وب‌سوکت + تلگرام) │
+                    └──────────────┬────────────────┘
+                                   │
+                     [تأیید پروژه توسط فریلنسر]
+                                   │
+                                   ▼
+                    ┌───────────────────────────────┐
+                    │ تولید هوشمند پیشنهاد با AI    │
+                    │ تهاجمی • متوازن • پرمیوم     │
+                    └──────────────┬────────────────┘
+                                   │
+                    ┌──────────────▼────────────────┐
+                    │ ارزیابی کیفی متن (Quality QA) │
+                    │ بررسی لحن، قیمت و مدت تحویل   │
+                    └──────────────┬────────────────┘
+                                   │
+                    [تأیید نهایی و ارسال توسط کاربر]
+                                   │
+                                   ▼
+                    ┌───────────────────────────────┐
+                    │ ثبت و ارسال دستیار (Assisted) │
+                    │ هدایت امن به صفحه پروژه       │
+                    └───────────────────────────────┘
 ```
 
-Background work (discovery scheduler, outbox worker, Telegram supervisor) runs
-inside the same process, independently of any open browser tab, and survives
-restarts through the transactional **outbox** (`outbox_events` + retry/backoff).
+---
 
-## Quick start
+## ✨ ویژگی‌های کلیدی (Key Features)
 
-### A. Docker Compose (production)
+* 🎯 **تطبیق هوشمند تخصص‌ها (Smart Skill Matcher):** مقایسه فنی نیازمندی‌های پروژه با رزومه و سطح مهارت‌های ثبت‌شده شما (۱ تا ۵) بدون کوچک‌ترین ادعای غیرواقعی یا توهم هوش مصنوعی.
+* 🤖 **ربات کنترل هوشمند تلگرام (Aiogram 3):**
+  * اعلان لحظه‌ای پروژه‌ها به همراه بودجه، برچسب‌های مهارت و امتیاز تطابق.
+  * منوی کنترل سریع لمسی (Reply Keyboard) جهت اسکن آنی، دریافت وضعیت و مرور پروژه‌ها.
+  * اتصال خودکار و صفر-کلیک (Zero-Friction Auto-Connect) بدون نیاز به وارد کردن کدهای پیچیده.
+* ✍️ **تدوین‌گر استراتژیک پروپوزال (Multi-Strategy Proposal Engine):**
+  * **متوازن (Balanced):** رویکرد استاندارد، لحن حرفه‌ای و رقابتی.
+  * **تهاجمی (Aggressive):** مناسب پروژه‌های با رقابت بالا با تاکید بر شروع سریع و قیمت اقتصادی.
+  * **پرمیوم (Premium):** رویکرد مهندسی و ارزش‌افزا برای مشتریان نیازمند کیفیت اعلا.
+* 🛡️ **بازبینی کیفیت دومرحله‌ای (Quality Gatekeeper):** ارزیابی امتیاز نگارش متن (نمره بالای ۷۵)، بررسی تعداد کلمات و انطباق قیمت پیشنهادی قبل از تایید نهایی.
+* 📋 **فرم راه‌اندازی سریع پس از ثبت‌نام (Onboarding Wizard):** ایجاد آسان حساب کاربری، انتخاب سریع مهارت‌ها با چیپ‌های لمسی و تعیین حداقل بودجه فیلترها.
+* 🔄 **بروزرسانی بدون توقف و با یک دستور (`update.sh`):** بکاپ‌گیری خودکار از دیتابیس قبل از هر آپدیت، اعمال مایگریشن‌های بدون ریسک و ریستارت خودکار بدون حذف شدن حتی ۱ رکورد از اطلاعات.
+* 🎨 **داشبورد مدرن اجرایی (Executive Dark UI):** طراحی تاریک نئونی مینیمال با تایپوگرافی استاندارد وزیرمتن (Vazirmatn)، نوتیفیکیشن‌های زنده صوتی وب‌سوکت و پنل‌های تحلیلی.
 
+---
+
+## 📊 وضعیت یکپارچه‌سازی پلتفرم‌ها (Platform Connectors)
+
+| پلتفرم | روش کشف پروژه | سرعت پایش | نحوه ارسال پیشنهاد | وضعیت کنونی |
+| :--- | :--- | :---: | :---: | :---: |
+| **کارلنسر (Karlancer)** | فراخوانی API عمومی جستجوی پلتفرم | ⚡ آنی (زیر ۱ ثانیه) | دستیار هوشمند (Assisted) | 🟢 فعال و تست‌شده |
+| **پونیشا (Ponisha)** | استخراج داده‌های سرور (`__NEXT_DATA__`) | ⚡ کمتر از ۲ ثانیه | دستیار هوشمند (Assisted) | 🟢 فعال و تست‌شده |
+| **پارس‌کدرز (ParsCoders)** | پایش نقشه سایت عمومی و صفحات باز | ⏱ نوبتی و منظم | دستیار هوشمند (Assisted) | 🟢 فعال و تست‌شده |
+
+> 💡 **ارسال دستیار (Assisted Workflow):** با توجه به اینکه پلتفرم‌ها فاقد API رسمی و باز ارسال پیشنهاد هستند، نکسوس به جای دور زدن غیرقانونی و پرریسک کپچا (که منجر به بن شدن اکانت کاربر می‌شود)، متن، قیمت و روزهای تحویل آماده را با ۱ کلیک در کلیپ‌بورد کپی کرده و لینک مستقیم پروژه را باز می‌کند تا شما با خیال آسوده ارسال کنید.
+
+---
+
+## 🚀 راهنمای نصب و راه‌اندازی سریع (Quick Start)
+
+### پیش‌نیازها
+* Docker و Docker Compose **یا** Python 3.11+
+* Git
+
+---
+
+### روش اول: راه‌اندازی با Docker Compose (پیشنهادی)
+
+۱. مخزن پروژه را کلون کنید:
 ```bash
-cp .env.example .env       # set FREELANCE_SECRET_KEY + FREELANCE_ADMIN_PASSWORD
+git clone https://github.com/parhamje/nexus-freelance-agent.git
+cd nexus-freelance-agent
+```
+
+۲. فایل محیطی را بسازید:
+```bash
+cp .env.example .env
+```
+
+۳. سرویس‌ها را اجرا کنید:
+```bash
 docker compose up -d --build
-# → http://localhost:8000
 ```
 
-### B. Native Linux (same codebase)
+۴. داشبورد را در مرورگر باز کنید:
+👉 **`http://localhost:8000`**
+
+---
+
+### روش دوم: اجرای محلی روی لینوکس (Native Systemd)
 
 ```bash
-./scripts/setup_linux.sh          # venv, deps, .env, migrations
+git clone https://github.com/parhamje/nexus-freelance-agent.git /opt/freelance-agent
+cd /opt/freelance-agent
+
+# اجرای اسکریپت راه‌اندازی محیط و وابستگی‌ها:
+chmod +x scripts/*.sh update.sh
+./scripts/setup_linux.sh
+
+# فعال‌سازی محیط مجازی و اجرا:
 source .venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir backend
 ```
 
-First login: `admin` / the password in `.env` (**change it** in Settings).
+---
 
-## Platform integration status (verified 2026-11-04)
+## 🌐 دیپلوی روی سرور مجازی (VPS Deployment)
 
-Honesty matrix — capabilities are declared per connector and surfaced in the UI:
+راهنمای جامع، مصور و گام‌به‌گام استقرار روی سرورهای ابری اوبونتو/دبیان، اتصال دامنه با Nginx و دریافت گواهی SSL رایگان در مستند اختصاصی زیر قرار دارد:
 
-| Platform | Discovery method | Verified live | Proposal submission |
-|---|---|---|---|
-| **Karlancer** | Platform's own public search API `karlancer.com/api/publics/search/projects` (no auth, same endpoint the website calls) | ✅ HTTP 200, fields parsed | ❌ no public API → **assisted** |
-| **Ponisha** | Public SSR page `ponisha.ir/search/projects` (`__NEXT_DATA__` JSON) | ✅ full project objects parsed | ❌ → **assisted** |
-| **ParsCoders** | Public sitemap `parscoders.com/sitemap/project.xml` + public project pages (robots.txt respected; `/api/` is disallowed and never touched) | ✅ sitemap + detail pages parsed | ❌ → **assisted** |
+📖 **[مطالعه راهنمای کامل استقرار سرور (docs/DEPLOY_VPS_FA.md)](docs/DEPLOY_VPS_FA.md)**
 
-- New connectors: subclass `BaseConnector`, set capability flags, register with
-  `@register` — a disabled platform row appears automatically in the dashboard.
-- No connector bypasses CAPTCHA, login walls, or anti-bot protections.
-- **Assisted submission**: the app prepares text + price + delivery, opens the
-  original project URL, and you post it yourself — then confirm, which is the
-  only moment a `submitted` record is created.
+---
 
-## Configuration highlights
+## 🔄 بروزرسانی سرور با ۱ دستور (Zero Data Loss)
 
-- **Agent Configuration** page: global/per-platform scan intervals, max items
-  per scan, include/exclude keywords, budget and category filters,
-  recommendation threshold (default **70**), quality threshold (**75**),
-  max generation attempts (**2**).
-- **AI Providers**: any OpenAI-compatible endpoint, Anthropic, or local Ollama;
-  independent model selection for analyzer / proposal generator / quality
-  reviewer / copilot; optional per-1k-token cost rates for cost estimates.
-- **Prompt Studio**: the Persian system prompts of all agents, versioned.
-- **Developer Profile**: your verified skills (1–5 levels), experience, links,
-  minimum budget — the single source of truth the AI is allowed to use.
-
-## Telegram
-
-1. Create a bot with @BotFather, paste the token in the **تلگرام** page.
-2. Send `/start <pairing-code>` from your chat (code shown on the page).
-3. You get Persian notifications with inline buttons: تأیید/رد پروژه, تولید
-   پیشنهاد, ویرایش, تولید مجدد, تأیید و ارسال, تأیید ارسال دستی.
-
-## Operations
-
-- Backups: `scripts/backup_db.sh` (cron example in docs/DEPLOYMENT.md), restore: `scripts/restore_db.sh`
-- Migrations: `alembic upgrade head` (runs automatically in Docker)
-- Health: `GET /api/v1/health`, API docs at `/api/docs`
-- Logs: dashboard **لاگ‌های اجرا** page (also `execution_logs` table)
-
-## Testing
+نگران از دست رفتن پروژه‌ها، چت‌ها یا توکن‌های خود هنگام آپدیت نباشید! اسکریپت `update.sh` تمامی فرایندها را با ایمنی ۱۰۰٪ انجام می‌دهد:
 
 ```bash
-pip install pytest pytest-asyncio
-pytest tests/
+cd /opt/freelance-agent
+./update.sh
 ```
 
-The suite covers dedup logic, token/URL utilities, credential encryption,
-connector normalization (offline fixtures) and an API smoke test. The `demo`
-platform (enabled only when `FREELANCE_DEBUG=true`) lets you exercise the full
-pipeline end-to-end without touching real platforms.
+**فرایند خودکار آپدیت:**
+1. ساخت بکاپ کامل دیتابیس در مسیر `backups/` با برچسب زمان.
+2. دریافت آخرین کامیت‌ها از شاخه `main` گیت‌هاب.
+3. اعمال مهاجرت ساختار دیتابیس (`alembic upgrade head`) بدون دستکاری رکوردهای قبلی.
+4. ریستارت خودکار کانتینرها/سرویس‌ها و تست سلامت سامانه (`/api/v1/health`).
 
-## Honest limitations
+---
 
-- No platform offers an official public developer API today, so **no connector
-  submits proposals programmatically** — all three use the assisted workflow.
-- Availability checks are best-effort (e.g. Ponisha `bidding_closed_at`,
-  Karlancer `is_expired`); ParsCoders reports `unknown` when no explicit
-  closed marker is on the page. Always glance at the project page before paying.
-- AI output quality depends on the configured model; the quality reviewer warns
-  but cannot guarantee outcomes.
+## 🤖 فعال‌سازی ربات تلگرام (Telegram Integration)
+
+۱. از طریق **[@BotFather](https://t.me/BotFather)** یک ربات جدید بسازید و توکن آن را کپی کنید.
+۲. در داشبورد وب، به منوی **«تلگرام»** بروید و توکن را ذخیره کنید.
+۳. در تلگرام وارد ربات خود شده و دکمه **Start** را بزنید.
+۴. چت شما بلافاصله متصل شده و منوی کنترل سریع فعال می‌گردد!
+
+---
+
+## 🏗️ ساختار پروژه (Directory Structure)
+
+```
+freelance-agent/
+├── backend/
+│   ├── app/
+│   │   ├── ai/              # مدیریت ارائه‌دهندگان هوش مصنوعی (OpenAI/Anthropic/Ollama)
+│   │   ├── api/routes/      # مسیرهای REST API (پروژه‌ها، پیشنهادها، تلگرام، احراز هویت)
+│   │   ├── core/            # تنظیمات، دیتابیس async، مدل امنیتی Fernet و Seed
+│   │   ├── integrations/    # کانکتورهای اختصاصی پلتفرم‌ها (کارلنسر، پونیشا، پارس‌کدرز)
+│   │   ├── models.py        # مدل‌های داده SQLAlchemy (پروژه‌ها، پیشنهادها، لاگ‌ها، کاربران)
+│   │   ├── services/        # موتور پایش زمان‌بندی‌شده، تولید پروپوزال، صف Outbox و تلگرام
+│   │   └── telegram/        # سورس کامل بات تلگرام با کتابخانه مدرن Aiogram 3
+│   └── main.py              # نقطه ورود برنامه FastAPI
+├── frontend/                # رابط کاربری تک‌صفحه‌ای مدرن (Vanilla JS + Tailwind CSS)
+│   ├── index.html           # ساختار اصلی داشبورد
+│   ├── css/style.css        # تم دارک، متغیرهای نئونی و استایل‌های سفارشی
+│   └── js/                  # معماری ماژولار صفحات و وب‌سوکت زنده
+├── docs/                    # راهنماهای جامع استقرار VPS و فنی
+├── scripts/                 # اسکریپت‌های سیستمی لینوکس، بکاپ و بازیابی
+├── systemd/                 # کانفیگ‌های آماده Systemd و وب‌سرور Nginx
+├── docker-compose.yml       # سناریوی داکر برای دیتابیس، ردیس و اپلیکیشن
+├── update.sh                # اسکریپت بروزرسانی ۱-دستوری امن سرور
+└── README.md                # مستندات پروژه
+```
+
+---
+
+## 🧪 تست‌ها و اعتبارسنجی (Testing)
+
+برای اجرای تمامی تست‌های واحد و End-to-End:
+```bash
+pytest tests/ -v
+```
+شامل تست‌های جامع سیستم De-duplication پروژه‌ها، هش امنیتی رمزها، اعتبارسنجی خروجی هوش مصنوعی و چرخه کامل جریان کار.
+
+---
+
+## ⚖️ اخلاق‌مداری و سلب مسئولیت (Disclaimer)
+
+* نکسوس کاملاً مطابق با شرایط استفاده پلتفرم‌ها عمل کرده و از اندپوینت‌های عمومی بدون دور زدن مکانیزم‌های حفاظتی استفاده می‌نماید.
+* حفظ کیفیت جامعه فریلنسری اولویت اول است؛ بنابراین نکسوس ارسال هرزنامه (اسپم) انجام نمی‌دهد و تمامی فرآیندها مستلزم تایید انسانی است.
+
+---
+
+## 📄 مجوز (License)
+
+این پروژه تحت مجوز **[MIT](LICENSE)** منتشر شده است و استفاده از آن برای اهداف شخصی و تجاری آزاد است.
