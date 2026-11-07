@@ -21,7 +21,9 @@ services:
     command: ["redis-server", "--save", "", "--appendonly", "no"]
 
   app:
-    build: .
+    build:
+      context: .
+      network: host
     restart: unless-stopped
     depends_on:
       db:
@@ -32,6 +34,9 @@ services:
       FREELANCE_REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
 
 volumes:
   pgdata:
