@@ -649,6 +649,10 @@ async function boot() {
       userQuickMenu.classList.add('hidden');
       navigate('profile');
     });
+    document.getElementById('menu-btn-onboard')?.addEventListener('click', () => {
+      userQuickMenu.classList.add('hidden');
+      showOnboardingWizard();
+    });
     document.getElementById('menu-btn-settings')?.addEventListener('click', () => {
       userQuickMenu.classList.add('hidden');
       navigate('settings');
@@ -771,19 +775,6 @@ async function boot() {
     });
   });
 
-  // Demo Credentials Shortcut
-  const fillDemoCredsBtn = document.getElementById('fill-demo-creds');
-  if (fillDemoCredsBtn) {
-    fillDemoCredsBtn.addEventListener('click', () => {
-      const usernameInp = document.getElementById('login-username');
-      const passwordInp = document.getElementById('login-password');
-      if (usernameInp) usernameInp.value = 'admin';
-      if (passwordInp) passwordInp.value = 'admin1234';
-      hideAuthAlert();
-      toast('مشخصات حساب آزمایشی Admin درج شد.');
-    });
-  }
-
   // Sign In Form Handler
   if (formSignin) {
     formSignin.addEventListener('submit', async (e) => {
@@ -853,6 +844,7 @@ async function boot() {
         setTimeout(async () => {
           await start();
           toast(`خوش آمدید ${data.username}! حساب شما فعال شد.`);
+          showOnboardingWizard(data.username);
         }, 500);
       } catch (ex) {
         showAuthAlert(ex.message || 'خطا در ثبت‌نام کاربر جدید.');
@@ -865,6 +857,7 @@ async function boot() {
     });
   }
 
+  window.showOnboardingWizard = showOnboardingWizard;
   window.addEventListener('fa:logout', () => { showApp(false); });
   window.addEventListener('hashchange', render);
   window.addEventListener('fa:refresh', () => render());
@@ -925,6 +918,187 @@ async function start() {
   refreshBell();
   if (!location.hash) location.hash = '#/overview';
   render();
+
+  // If newly registered or profile is completely unconfigured, open onboarding wizard
+  try {
+    const prof = await api.get('/developer-profile');
+    if (!prof.full_name && (!prof.skills || prof.skills.length === 0) && !sessionStorage.getItem('onboarding_dismissed')) {
+      sessionStorage.setItem('onboarding_dismissed', '1');
+      setTimeout(() => showOnboardingWizard(me?.username || ''), 600);
+    }
+  } catch { /* ignore */ }
+}
+
+export async function showOnboardingWizard(username = '') {
+  let profile = null;
+  try {
+    profile = await api.get('/developer-profile').catch(() => null);
+  } catch (e) {
+    console.error('Failed loading profile for onboarding', e);
+  }
+
+  const existingSkills = (profile?.skills || []).map(s => s.name);
+  const popularSkills = [
+    'Python', 'FastAPI', 'Django', 'React', 'JavaScript',
+    'Node.js', 'Web Scraping', 'Telegram Bot', 'WordPress',
+    'Docker', 'PostgreSQL', 'UI/UX Design', 'AI & LLM'
+  ];
+
+  const m = modal('🚀 راه‌اندازی اولیه و تکمیل مشخصات فریلنسر', `
+    <div class="space-y-4 text-xs text-slate-300">
+      <div class="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs leading-relaxed flex items-start gap-2.5">
+        <span class="text-base">✨</span>
+        <div>
+          <b>خوش آمدید ${esc(username || 'همکار گرامی')}!</b><br>
+          برای اینکه هوش مصنوعی نکسوس بتواند پروژه‌های متناسب با تخصص شما را در کارلنسر و پونیشا شناسایی کرده و پیشنهادهای هدفمند بنویسد، اطلاعات اولیه زیر را تکمیل نمایید:
+        </div>
+      </div>
+
+      <!-- Full Name & Title -->
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label class="lbl block mb-1">نام و نام خانوادگی</label>
+          <input id="ob-fullname" class="inp" placeholder="مثال: پارسا راد" value="${esc(profile?.full_name || '')}">
+        </div>
+        <div>
+          <label class="lbl block mb-1">عنوان شغلی و حوزه فعالیت</label>
+          <input id="ob-summary" class="inp" placeholder="مثال: توسعه‌دهنده پایتون، وب و ربات" value="${esc(profile?.summary || '')}">
+        </div>
+      </div>
+
+      <!-- Skills Chips -->
+      <div>
+        <label class="lbl block mb-1.5">مهارت‌ها و فناوری‌های شما (کلیک برای انتخاب سریع)</label>
+        <div class="flex flex-wrap gap-1.5 mb-2.5" id="ob-skills-chips">
+          ${popularSkills.map(s => {
+            const isSelected = existingSkills.some(es => es.toLowerCase() === s.toLowerCase());
+            return `
+              <button type="button" class="ob-chip px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer border ${isSelected ? 'bg-teal-500 text-slate-950 border-teal-400 font-bold' : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-slate-500'}" data-skill="${esc(s)}">
+                ${isSelected ? '✓ ' : '+ '}${esc(s)}
+              </button>
+            `;
+          }).join('')}
+        </div>
+        <input id="ob-extra-skills" class="inp font-mono text-xs" placeholder="مهارت‌های دیگر (با کاما جدا کنید، مثلاً: Golang, Vue, Redis)">
+      </div>
+
+      <!-- Platforms to Scan -->
+      <div>
+        <label class="lbl block mb-1.5">پلتفرم‌های مدنظر برای پایش خودکار</label>
+        <div class="grid sm:grid-cols-2 gap-2.5">
+          <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/50 border border-slate-700/80 hover:border-teal-500/50 transition cursor-pointer">
+            <input type="checkbox" id="ob-plat-karlancer" checked class="rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-400">
+            <div>
+              <div class="font-bold text-slate-100 flex items-center gap-1.5">
+                <span>کارلنسر (Karlancer)</span>
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              </div>
+              <div class="text-[11px] text-slate-400">پایش مناقصات برنامه‌نویسی و وب</div>
+            </div>
+          </label>
+
+          <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/50 border border-slate-700/80 hover:border-teal-500/50 transition cursor-pointer">
+            <input type="checkbox" id="ob-plat-ponisha" checked class="rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-400">
+            <div>
+              <div class="font-bold text-slate-100 flex items-center gap-1.5">
+                <span>پونیشا (Ponisha)</span>
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              </div>
+              <div class="text-[11px] text-slate-400">کشف سریع فرصت‌های فریلنسری</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Min Budget Filter -->
+      <div>
+        <label class="lbl block mb-1">حداقل بودجه مطلوب پروژه‌ها (تومان - اختیاری)</label>
+        <input id="ob-budget" type="number" class="inp font-mono" placeholder="مثال: ۲۰۰۰۰۰۰ (پروژه‌های زیر این مبلغ فیلتر می‌شوند)" value="${profile?.min_acceptable_budget || ''}">
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+        <button type="button" class="btn text-slate-400 hover:text-slate-200" id="ob-btn-skip">
+          رد کردن این مرحله
+        </button>
+        <button type="button" class="btn-action-primary text-xs py-2 px-4 flex items-center gap-1.5" id="ob-btn-save">
+          <span>ذخیره و شروع کار با نکسوس 🚀</span>
+        </button>
+      </div>
+    </div>
+  `);
+
+  const selectedSkills = new Set(existingSkills);
+  m.body.querySelectorAll('.ob-chip').forEach(btn => {
+    btn.onclick = () => {
+      const s = btn.dataset.skill;
+      if (selectedSkills.has(s)) {
+        selectedSkills.delete(s);
+        btn.classList.remove('bg-teal-500', 'text-slate-950', 'border-teal-400', 'font-bold');
+        btn.classList.add('bg-slate-800/80', 'text-slate-300', 'border-slate-700');
+        btn.textContent = '+ ' + s;
+      } else {
+        selectedSkills.add(s);
+        btn.classList.add('bg-teal-500', 'text-slate-950', 'border-teal-400', 'font-bold');
+        btn.classList.remove('bg-slate-800/80', 'text-slate-300', 'border-slate-700');
+        btn.textContent = '✓ ' + s;
+      }
+    };
+  });
+
+  m.body.querySelector('#ob-btn-skip').onclick = () => {
+    m.close();
+  };
+
+  m.body.querySelector('#ob-btn-save').onclick = async () => {
+    const saveBtn = m.body.querySelector('#ob-btn-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'در حال ذخیره‌سازی...';
+
+    try {
+      const fullName = m.body.querySelector('#ob-fullname').value.trim();
+      const summary = m.body.querySelector('#ob-summary').value.trim();
+      const extraSkillsStr = m.body.querySelector('#ob-extra-skills').value.trim();
+      const budgetVal = m.body.querySelector('#ob-budget').value.trim();
+
+      if (extraSkillsStr) {
+        extraSkillsStr.split(/[,،]+/).forEach(s => {
+          const clean = s.trim();
+          if (clean) selectedSkills.add(clean);
+        });
+      }
+
+      const allSkillsList = Array.from(selectedSkills);
+
+      await api.put('/developer-profile', {
+        full_name: fullName || username || null,
+        summary: summary || null,
+        preferred_technologies: allSkillsList,
+        min_acceptable_budget: budgetVal ? Number(budgetVal) : null,
+      });
+
+      for (const s of allSkillsList) {
+        await api.post('/developer-profile/skills', {
+          name: s,
+          level: 4,
+          is_core: true,
+        }).catch(() => {});
+      }
+
+      const karlancer = m.body.querySelector('#ob-plat-karlancer')?.checked ?? true;
+      const ponisha = m.body.querySelector('#ob-plat-ponisha')?.checked ?? true;
+      await api.put('/platforms/karlancer', { enabled: karlancer }).catch(() => {});
+      await api.put('/platforms/ponisha', { enabled: ponisha }).catch(() => {});
+
+      toast('🎉 پروفایل شما با موفقیت ذخیره شد! نکسوس پروژه‌ها را متناسب با تخصص شما اولویت‌بندی می‌کند.', 'success', 6000);
+      m.close();
+      window.dispatchEvent(new CustomEvent('fa:refresh'));
+    } catch (err) {
+      toast(`خطا در ذخیره‌سازی: ${err.message}`, 'error');
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'ذخیره و شروع کار با نکسوس 🚀';
+    }
+  };
 }
 
 boot();

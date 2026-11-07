@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     admin_username: str = "admin"
     admin_password: str = "change-me-please"
+    seed_admin: bool = False
 
     access_token_expire_minutes: int = 60 * 24
     rate_limit_per_minute: int = 240

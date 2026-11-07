@@ -16,12 +16,13 @@ log = get_logger("seed")
 
 
 async def seed(session) -> None:
-    # Admin user
-    result = await session.execute(select(User).where(User.username == settings.admin_username))
-    if result.scalar_one_or_none() is None:
-        session.add(User(username=settings.admin_username,
-                         password_hash=hash_password(settings.admin_password)))
-        log.info("seeded admin user '%s'", settings.admin_username)
+    # Admin user (only if explicitly enabled via settings.seed_admin)
+    if getattr(settings, "seed_admin", False):
+        result = await session.execute(select(User).where(User.username == settings.admin_username))
+        if result.scalar_one_or_none() is None:
+            session.add(User(username=settings.admin_username,
+                             password_hash=hash_password(settings.admin_password)))
+            log.info("seeded admin user '%s'", settings.admin_username)
 
     # Agent configuration singleton
     result = await session.execute(select(AgentConfiguration).limit(1))
