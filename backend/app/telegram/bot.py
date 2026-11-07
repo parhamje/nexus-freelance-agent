@@ -595,6 +595,141 @@ def build_router():
         await _show_status(message.chat.id)
 
     # --------------------------- Settings ----------------------------------- #
+    async def _render_main_settings(session) -> tuple[str, "InlineKeyboardMarkup"]:
+        from app.models import TelegramSetting, AgentConfiguration, Platform, AIProvider
+        s = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+        cfg = (await session.execute(select(AgentConfiguration).limit(1))).scalar_one_or_none()
+        platforms = (await session.execute(select(Platform).where(Platform.slug != "demo").order_by(Platform.id))).scalars().all()
+
+        active_ai_name = "تنظیم نشده"
+        active_model = "—"
+        if cfg and cfg.model_assignments:
+            assign = cfg.model_assignments.get("proposal") or cfg.model_assignments.get("analyzer") or {}
+            pid = assign.get("provider_id")
+            if pid:
+                p_row = (await session.execute(select(AIProvider).where(AIProvider.id == pid))).scalar_one_or_none()
+                if p_row:
+                    active_ai_name = p_row.name
+                    active_model = assign.get("model") or p_row.default_model or "—"
+
+        if active_ai_name == "تنظیم نشده":
+            p_fallback = (await session.execute(select(AIProvider).where(AIProvider.is_active == True).limit(1))).scalar_one_or_none()
+            if p_fallback:
+                active_ai_name = p_fallback.name
+                active_model = p_fallback.default_model or "—"
+
+        notif_status = "روشن ✅" if s and s.notify_enabled else "خاموش ❌"
+        min_score = s.notify_min_score if s and s.notify_min_score is not None else 0
+        interval = cfg.scan_interval_minutes if cfg else 20
+
+        plat_summary = []
+        for p in platforms:
+            icon = "🟢" if p.enabled else "🔴"
+            plat_summary.append(f"{icon} {p.name}")
+        plat_str = " | ".join(plat_summary) if plat_summary else "هیچ‌کدام"
+
+        text = (
+            "⚙️ <b>مرکز تنظیمات و کنترل هوشمند NEXUS</b>\n"
+            "────────────────────\n"
+            f"🔔 <b>اعلان تلگرام:</b> {notif_status}\n"
+            f"🎯 <b>حداقل امتیاز تطابق هوش مصنوعی:</b> {min_score}٪\n"
+            f"⏱ <b>فاصله اسکن پلتفرم‌ها:</b> هر {interval} دقیقه\n"
+            f"🌐 <b>وضعیت پلتفرم‌ها:</b> {plat_str}\n"
+            f"🤖 <b>هوش مصنوعی فعال:</b> {html.escape(active_ai_name)}\n"
+            f"🧠 <b>مدل انتخابی:</b> <code>{html.escape(active_model)}</code>\n"
+            "────────────────────\n"
+            "جهت تغییر هر بخش، دسته مورد نظر را لمس کنید:"
+        )
+
+        kb = _kb([
+            [("🔔 تنظیمات اعلان و فیلتر", "settg:m:notify"), ("🌐 مدیریت پلتفرم‌ها", "settg:m:platforms")],
+            [("⏱ زمان‌بندی اسکن", "settg:m:interval"), ("🤖 تغییر هوش مصنوعی", "settg:m:ai")],
+            [("🔄 بروزرسانی وضعیت", "settg:m:main")],
+        ])
+        return text, kb
+
+    async def _render_notify_settings(session) -> tuple[str, "InlineKeyboardMarkup"]:
+        from app.models import TelegramSetting
+        s = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+        notif_status = "روشن (فعال) ✅" if s and s.notify_enabled else "خاموش (غیرفعال) ❌"
+        min_score = s.notify_min_score if s and s.notify_min_score is not None else 0
+
+        text = (
+            "🔔 <b>تنظیمات اعلان تلگرام و فیلتر هوش مصنوعی</b>\n"
+            "────────────────────\n"
+            f"وضعیت ارسال لحظه‌ای: <b>{notif_status}</b>\n"
+            f"حداقل نمره تطابق پروژه: <b>{min_score}٪</b>\n\n"
+            "<i>💡 تنها پروژه‌هایی به تلگرام ارسال می‌شوند که امتیاز تطابق هوش مصنوعی آنها برابر یا بیشتر از این درصد باشد.</i>"
+        )
+        kb = _kb([
+            [("🔔 تغییر وضعیت ارسال (روشن / خاموش)", "settg:toggle_notify")],
+            [("🎯 ۰٪ (همه پروژه‌ها)", "settg:score:0"), ("🎯 ۵۰٪ (متوسط)", "settg:score:50")],
+            [("🎯 ۷۰٪ (پیشنهادی)", "settg:score:70"), ("🎯 ۸۵٪ (فقط عالی)", "settg:score:85")],
+            [("⬅️ بازگشت به تنظیمات اصلی", "settg:m:main")],
+        ])
+        return text, kb
+
+    async def _render_platforms_settings(session) -> tuple[str, "InlineKeyboardMarkup"]:
+        from app.models import Platform
+        platforms = (await session.execute(select(Platform).where(Platform.slug != "demo").order_by(Platform.id))).scalars().all()
+
+        text = (
+            "🌐 <b>مدیریت پلتفرم‌های فریلنسری</b>\n"
+            "────────────────────\n"
+            "برای فعال یا غیرفعال‌سازی اسکن هر پلتفرم، روی دکمه مربوطه کلیک کنید:\n"
+        )
+        buttons = []
+        for p in platforms:
+            status_text = "فعال 🟢" if p.enabled else "غیرفعال 🔴"
+            toggle_action = "غیرفعال‌سازی" if p.enabled else "فعال‌سازی"
+            buttons.append([(f"{p.name}: {status_text} (کلیک برای {toggle_action})", f"settg:plat_toggle:{p.slug}")])
+
+        buttons.append([("⬅️ بازگشت به تنظیمات اصلی", "settg:m:main")])
+        return text, _kb(buttons)
+
+    async def _render_interval_settings(session) -> tuple[str, "InlineKeyboardMarkup"]:
+        from app.models import AgentConfiguration
+        cfg = (await session.execute(select(AgentConfiguration).limit(1))).scalar_one_or_none()
+        interval = cfg.scan_interval_minutes if cfg else 20
+
+        text = (
+            "⏱ <b>تنظیم زمان‌بندی و فاصله پایش خودکار</b>\n"
+            "────────────────────\n"
+            f"فاصله اسکن فعلی: <b>هر {interval} دقیقه یک‌بار</b>\n\n"
+            "<i>💡 ربات در این فواصل، پلتفرم‌های فعال را به صورت خودکار برای پروژه‌های جدید اسکن می‌کند.</i>"
+        )
+        kb = _kb([
+            [("⏱ ۵ دقیقه (سریع)", "settg:interval:5"), ("⏱ ۱۰ دقیقه", "settg:interval:10")],
+            [("⏱ ۲۰ دقیقه (استاندارد)", "settg:interval:20"), ("⏱ ۳۰ دقیقه", "settg:interval:30")],
+            [("⏱ ۶۰ دقیقه (۱ ساعت)", "settg:interval:60")],
+            [("⬅️ بازگشت به تنظیمات اصلی", "settg:m:main")],
+        ])
+        return text, kb
+
+    async def _render_ai_settings(session) -> tuple[str, "InlineKeyboardMarkup"]:
+        from app.models import AIProvider, AgentConfiguration
+        providers = (await session.execute(select(AIProvider).order_by(AIProvider.id))).scalars().all()
+        cfg = (await session.execute(select(AgentConfiguration).limit(1))).scalar_one_or_none()
+        current_pid = None
+        if cfg and cfg.model_assignments:
+            assign = cfg.model_assignments.get("proposal") or {}
+            current_pid = assign.get("provider_id")
+
+        text = (
+            "🤖 <b>انتخاب هوش مصنوعی فعال برای تحلیل و نگارش</b>\n"
+            "────────────────────\n"
+            "تأمین‌کننده مدنظرتان را جهت انجام ارزیابی پروژه‌ها و نگارش هوشمند پیشنهاد انتخاب کنید:\n"
+        )
+        buttons = []
+        for p in providers:
+            is_selected = (p.id == current_pid) or (current_pid is None and p.is_active)
+            badge = "✅" if is_selected else "⚪"
+            label = f"{badge} {p.name} ({p.default_model or p.provider_type})"
+            buttons.append([(label, f"settg:ai_switch:{p.id}")])
+
+        buttons.append([("⬅️ بازگشت به تنظیمات اصلی", "settg:m:main")])
+        return text, _kb(buttons)
+
     async def _show_settings(target_chat_id: int):
         from app.models import TelegramSetting
         session_factory = get_session_factory()
@@ -603,21 +738,7 @@ def build_router():
             if not s:
                 return
             token = decrypt_token(s) if s.bot_token_encrypted else ""
-
-            notif_status = "فعال ✅" if s.notify_enabled else "غیرفعال ❌"
-            min_score = s.notify_min_score or 0
-            text = (
-                "⚙️ <b>تنظیمات ربات تلگرام NEXUS</b>\n\n"
-                f"🔔 وضعیت ارسال اعلان: <b>{notif_status}</b>\n"
-                f"🎯 فیلتر حداقل امتیاز تطابق هوش مصنوعی: <b>{min_score}%</b>\n\n"
-                "جهت تغییر مقادیر، روی دکمه‌های شیشه‌ای زیر کلیک کنید:"
-            )
-            kb = _kb([
-                [("🔔 تغییر وضعیت اعلان (روشن/خاموش)", "settg:toggle_notify")],
-                [("🎯 حداقل ۰٪ (همه)", "settg:score:0"), ("🎯 حداقل ۵۰٪", "settg:score:50")],
-                [("🎯 حداقل ۷۰٪", "settg:score:70"), ("🎯 حداقل ۸۵٪", "settg:score:85")],
-                [("⬅️ بازگشت به منو", "quick:start")],
-            ])
+            text, kb = await _render_main_settings(session)
             await send_text(token, str(target_chat_id), text, kb)
 
     @router.message(Command("settings"))
@@ -656,36 +777,77 @@ def build_router():
     async def cb_settings_action(call: CallbackQuery):
         await _ensure_authorized(call.message)
         action_parts = call.data.split(":")
+        action = action_parts[1]
         session_factory = get_session_factory()
         async with session_factory() as session:
-            from app.models import TelegramSetting
-            s = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
-            if s:
-                if action_parts[1] == "toggle_notify":
-                    s.notify_enabled = not s.notify_enabled
-                elif action_parts[1] == "score" and len(action_parts) > 2:
-                    s.notify_min_score = int(action_parts[2])
-                await session.commit()
+            from app.models import TelegramSetting, AgentConfiguration, Platform, AIProvider
+            text = ""
+            kb = None
 
-                notif_status = "فعال ✅" if s.notify_enabled else "غیرفعال ❌"
-                min_score = s.notify_min_score or 0
-                text = (
-                    "⚙️ <b>تنظیمات ربات تلگرام NEXUS</b>\n\n"
-                    f"🔔 وضعیت ارسال اعلان: <b>{notif_status}</b>\n"
-                    f"🎯 فیلتر حداقل امتیاز تطابق هوش مصنوعی: <b>{min_score}%</b>\n\n"
-                    "جهت تغییر مقادیر، روی دکمه‌های شیشه‌ای زیر کلیک کنید:"
-                )
-                kb = _kb([
-                    [("🔔 تغییر وضعیت اعلان (روشن/خاموش)", "settg:toggle_notify")],
-                    [("🎯 حداقل ۰٪ (همه)", "settg:score:0"), ("🎯 حداقل ۵۰٪", "settg:score:50")],
-                    [("🎯 حداقل ۷۰٪", "settg:score:70"), ("🎯 حداقل ۸۵٪", "settg:score:85")],
-                    [("⬅️ بازگشت به منو", "quick:start")],
-                ])
-                try:
-                    await call.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-                except Exception:
-                    pass
-        await call.answer("تنظیمات ذخیره شد")
+            if action == "m":
+                sub = action_parts[2] if len(action_parts) > 2 else "main"
+                if sub == "notify":
+                    text, kb = await _render_notify_settings(session)
+                elif sub == "platforms":
+                    text, kb = await _render_platforms_settings(session)
+                elif sub == "interval":
+                    text, kb = await _render_interval_settings(session)
+                elif sub == "ai":
+                    text, kb = await _render_ai_settings(session)
+                else:
+                    text, kb = await _render_main_settings(session)
+
+            elif action == "toggle_notify":
+                s = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+                if s:
+                    s.notify_enabled = not s.notify_enabled
+                    await session.commit()
+                text, kb = await _render_notify_settings(session)
+
+            elif action == "score":
+                val = int(action_parts[2])
+                s = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+                if s:
+                    s.notify_min_score = val
+                    await session.commit()
+                text, kb = await _render_notify_settings(session)
+
+            elif action == "plat_toggle":
+                slug = action_parts[2]
+                plat = (await session.execute(select(Platform).where(Platform.slug == slug))).scalar_one_or_none()
+                if plat:
+                    plat.enabled = not plat.enabled
+                    await session.commit()
+                text, kb = await _render_platforms_settings(session)
+
+            elif action == "interval":
+                minutes = int(action_parts[2])
+                cfg = (await session.execute(select(AgentConfiguration).limit(1))).scalar_one_or_none()
+                if cfg:
+                    cfg.scan_interval_minutes = minutes
+                plats = (await session.execute(select(Platform))).scalars().all()
+                for p in plats:
+                    p.scan_interval_minutes = minutes
+                await session.commit()
+                text, kb = await _render_interval_settings(session)
+
+            elif action == "ai_switch":
+                pid = int(action_parts[2])
+                p = (await session.execute(select(AIProvider).where(AIProvider.id == pid))).scalar_one_or_none()
+                cfg = (await session.execute(select(AgentConfiguration).limit(1))).scalar_one_or_none()
+                if p and cfg:
+                    assignments = dict(cfg.model_assignments or {})
+                    for role in ("analyzer", "proposal", "quality", "copilot"):
+                        assignments[role] = {"provider_id": p.id, "model": p.default_model or ""}
+                    cfg.model_assignments = assignments
+                    await session.commit()
+                text, kb = await _render_ai_settings(session)
+
+            try:
+                await call.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+            except Exception:
+                pass
+        await call.answer("تنظیمات با موفقیت به‌روزرسانی شد")
 
     @router.callback_query(F.data.startswith("appr:"))
     async def cb_approve(call: CallbackQuery):
