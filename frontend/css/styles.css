@@ -234,6 +234,30 @@ html[dir="ltr"] .font-vazir {
   box-shadow: 0 0 12px rgba(45, 212, 191, 0.35);
 }
 
+#user-quick-menu {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #e2e8f0;
+}
+.dark #user-quick-menu {
+  background: #1b2631;
+  color: #f1f5f9;
+  border-color: #2b3d4f;
+}
+#user-quick-menu button {
+  color: #334155;
+  text-align: start;
+}
+#user-quick-menu button:hover {
+  color: #0f172a;
+}
+.dark #user-quick-menu button {
+  color: #cbd5e1;
+}
+.dark #user-quick-menu button:hover {
+  color: #ffffff;
+}
+
 /* ==========================================================================
    Main Floating Window Container (The Signature White Card)
    ========================================================================== */
