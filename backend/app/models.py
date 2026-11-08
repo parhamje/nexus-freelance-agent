@@ -404,7 +404,7 @@ class TelegramSetting(Base):
     pairing_code: Mapped[str] = mapped_column(String(16), default="")
     connection_status: Mapped[str] = mapped_column(String(32), default="disconnected")
     notify_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    notify_min_score: Mapped[int] = mapped_column(Integer, default=0)
+    notify_min_score: Mapped[int] = mapped_column(Integer, default=60)
     last_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -860,9 +860,18 @@ async function boot() {
   window.showOnboardingWizard = showOnboardingWizard;
   window.addEventListener('fa:logout', () => { showApp(false); });
   window.addEventListener('hashchange', render);
-  window.addEventListener('fa:refresh', () => render());
+
+  // Debounce refresh events to prevent cascading re-renders and 429 Too Many Requests
+  let refreshDebounceTimer = null;
+  window.addEventListener('fa:refresh', () => {
+    if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
+    refreshDebounceTimer = setTimeout(() => {
+      render();
+    }, 800);
+  });
 
   let lastConfigToastTime = 0;
+  let recentNotifTimes = [];
   onEvent(async (data) => {
     if (data.type === 'notification') {
       const isConfigMissing = (data.notification?.title || '').includes('پیکربندی نشده است') || (data.notification?.body || '').includes('پیکربندی نشده است');
@@ -878,8 +887,18 @@ async function boot() {
         lastConfigToastTime = now;
       }
 
-      toast(`<b>${esc(data.notification.title)}</b>${data.notification.body ? `<div class="text-[11px] opacity-90 mt-1">${esc(data.notification.body)}</div>` : ''}`, kind, 6000);
-      if (kind !== 'error') playChime();
+      // Avoid visual toast floods if dozens of projects are discovered simultaneously
+      const now = Date.now();
+      recentNotifTimes = recentNotifTimes.filter(t => now - t < 4000);
+      recentNotifTimes.push(now);
+
+      if (recentNotifTimes.length <= 4) {
+        toast(`<b>${esc(data.notification.title)}</b>${data.notification.body ? `<div class="text-[11px] opacity-90 mt-1">${esc(data.notification.body)}</div>` : ''}`, kind, 5000);
+        if (kind !== 'error') playChime();
+      } else if (recentNotifTimes.length === 5) {
+        toast('⚡ چند پروژه و اعلان جدید همزمان دریافت شدند.', 'info', 4000);
+      }
+
       refreshBell();
       if (['project.new', 'analysis.done', 'proposal.ready', 'submission.update'].includes(data.event_kind)) {
         window.dispatchEvent(new CustomEvent('fa:refresh'));
@@ -945,8 +964,8 @@ export async function showOnboardingWizard(username = '') {
   ];
 
   const m = modal('🚀 راه‌اندازی اولیه و تکمیل مشخصات فریلنسر', `
-    <div class="space-y-4 text-xs text-slate-300">
-      <div class="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs leading-relaxed flex items-start gap-2.5">
+    <div class="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+      <div class="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-700 dark:text-teal-300 text-xs leading-relaxed flex items-start gap-2.5">
         <span class="text-base">✨</span>
         <div>
           <b>خوش آمدید ${esc(username || 'همکار گرامی')}!</b><br>
@@ -973,7 +992,7 @@ export async function showOnboardingWizard(username = '') {
           ${popularSkills.map(s => {
             const isSelected = existingSkills.some(es => es.toLowerCase() === s.toLowerCase());
             return `
-              <button type="button" class="ob-chip px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer border ${isSelected ? 'bg-teal-500 text-slate-950 border-teal-400 font-bold' : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-slate-500'}" data-skill="${esc(s)}">
+              <button type="button" class="ob-chip px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer border ${isSelected ? 'bg-teal-500 text-white font-bold border-teal-400' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-500'}" data-skill="${esc(s)}">
                 ${isSelected ? '✓ ' : '+ '}${esc(s)}
               </button>
             `;
@@ -986,25 +1005,25 @@ export async function showOnboardingWizard(username = '') {
       <div>
         <label class="lbl block mb-1.5">پلتفرم‌های مدنظر برای پایش خودکار</label>
         <div class="grid sm:grid-cols-2 gap-2.5">
-          <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/50 border border-slate-700/80 hover:border-teal-500/50 transition cursor-pointer">
-            <input type="checkbox" id="ob-plat-karlancer" checked class="rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-400">
+          <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 hover:border-teal-500/50 transition cursor-pointer">
+            <input type="checkbox" id="ob-plat-karlancer" checked class="rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-teal-600 focus:ring-teal-500">
             <div>
-              <div class="font-bold text-slate-100 flex items-center gap-1.5">
+              <div class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                 <span>کارلنسر (Karlancer)</span>
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
               </div>
-              <div class="text-[11px] text-slate-400">پایش مناقصات برنامه‌نویسی و وب</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400">پایش مناقصات برنامه‌نویسی و وب</div>
             </div>
           </label>
 
-          <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/50 border border-slate-700/80 hover:border-teal-500/50 transition cursor-pointer">
-            <input type="checkbox" id="ob-plat-ponisha" checked class="rounded border-slate-600 bg-slate-900 text-teal-500 focus:ring-teal-400">
+          <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 hover:border-teal-500/50 transition cursor-pointer">
+            <input type="checkbox" id="ob-plat-ponisha" checked class="rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-teal-600 focus:ring-teal-500">
             <div>
-              <div class="font-bold text-slate-100 flex items-center gap-1.5">
+              <div class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                 <span>پونیشا (Ponisha)</span>
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
               </div>
-              <div class="text-[11px] text-slate-400">کشف سریع فرصت‌های فریلنسری</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400">کشف سریع فرصت‌های فریلنسری</div>
             </div>
           </label>
         </div>
@@ -1017,8 +1036,8 @@ export async function showOnboardingWizard(username = '') {
       </div>
 
       <!-- Action Buttons -->
-      <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
-        <button type="button" class="btn text-slate-400 hover:text-slate-200" id="ob-btn-skip">
+      <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+        <button type="button" class="btn text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" id="ob-btn-skip">
           رد کردن این مرحله
         </button>
         <button type="button" class="btn-action-primary text-xs py-2 px-4 flex items-center gap-1.5" id="ob-btn-save">
@@ -1034,13 +1053,13 @@ export async function showOnboardingWizard(username = '') {
       const s = btn.dataset.skill;
       if (selectedSkills.has(s)) {
         selectedSkills.delete(s);
-        btn.classList.remove('bg-teal-500', 'text-slate-950', 'border-teal-400', 'font-bold');
-        btn.classList.add('bg-slate-800/80', 'text-slate-300', 'border-slate-700');
+        btn.classList.remove('bg-teal-500', 'text-white', 'border-teal-400', 'font-bold');
+        btn.classList.add('bg-slate-100', 'dark:bg-slate-800/80', 'text-slate-700', 'dark:text-slate-300', 'border-slate-200', 'dark:border-slate-700');
         btn.textContent = '+ ' + s;
       } else {
         selectedSkills.add(s);
-        btn.classList.add('bg-teal-500', 'text-slate-950', 'border-teal-400', 'font-bold');
-        btn.classList.remove('bg-slate-800/80', 'text-slate-300', 'border-slate-700');
+        btn.classList.add('bg-teal-500', 'text-white', 'border-teal-400', 'font-bold');
+        btn.classList.remove('bg-slate-100', 'dark:bg-slate-800/80', 'text-slate-700', 'dark:text-slate-300', 'border-slate-200', 'dark:border-slate-700');
         btn.textContent = '✓ ' + s;
       }
     };
@@ -1085,12 +1104,28 @@ export async function showOnboardingWizard(username = '') {
         }).catch(() => {});
       }
 
+      // Sync Agent Configuration filters so scanner immediately filters irrelevant projects
+      await api.put('/agentconfig', {
+        filters: {
+          include_keywords: allSkillsList,
+          exclude_keywords: [],
+          categories: [],
+          budget_min: budgetVal ? Number(budgetVal) : null,
+          budget_max: null,
+        }
+      }).catch(() => {});
+
+      // Ensure Telegram only sends projects matching score threshold
+      await api.put('/telegram/settings', {
+        notify_min_score: 60,
+      }).catch(() => {});
+
       const karlancer = m.body.querySelector('#ob-plat-karlancer')?.checked ?? true;
       const ponisha = m.body.querySelector('#ob-plat-ponisha')?.checked ?? true;
       await api.put('/platforms/karlancer', { enabled: karlancer }).catch(() => {});
       await api.put('/platforms/ponisha', { enabled: ponisha }).catch(() => {});
 
-      toast('🎉 پروفایل شما با موفقیت ذخیره شد! نکسوس پروژه‌ها را متناسب با تخصص شما اولویت‌بندی می‌کند.', 'success', 6000);
+      toast('🎉 مشخصات و فیلترهای تخصصی شما با موفقیت ذخیره شد! نکسوس فقط پروژه‌های مرتبط را بررسی خواهد کرد.', 'success', 6000);
       m.close();
       window.dispatchEvent(new CustomEvent('fa:refresh'));
     } catch (err) {

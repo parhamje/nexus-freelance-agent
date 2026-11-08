@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     seed_admin: bool = False
 
     access_token_expire_minutes: int = 60 * 24
-    rate_limit_per_minute: int = 240
+    rate_limit_per_minute: int = 1200
 
     default_scan_interval_minutes: int = 20
     time_saved_per_proposal_minutes: int = 45

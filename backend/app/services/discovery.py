@@ -14,8 +14,8 @@ from sqlalchemy import select
 from app.core.logging_config import get_logger, log_execution
 from app.integrations.base.connector import (CONNECTORS, ConnectorError,
                                               get_connector)
-from app.models import (AgentConfiguration, Platform, PlatformCredential,
-                        PlatformScanLog, Project, ProjectStatus)
+from app.models import (AgentConfiguration, DeveloperProfile, DeveloperSkill,
+                        Platform, PlatformCredential, PlatformScanLog, Project, ProjectStatus)
 from app.core.security import decrypt_value
 from app.core.db import get_session_factory
 from app.services import notifications, outbox
@@ -84,23 +84,39 @@ def _load_platform_credentials(raw_encrypted: str) -> dict:
         return {}
 
 
-def _passes_filters(item, filters: dict) -> tuple[bool, str]:
-    title_desc = normalize_text(f"{item.title} {item.description}")
-    include = [k for k in (filters.get("include_keywords") or []) if k]
-    if include and not any(normalize_text(k) in title_desc for k in include):
-        return False, "no include keyword matched"
+def _passes_filters(item, filters: dict, profile=None, skills=None) -> tuple[bool, str]:
+    title_desc = normalize_text(f"{item.title} {item.description} {' '.join(item.skills or [])}").lower()
+    include = [k.strip().lower() for k in (filters.get("include_keywords") or []) if k and k.strip()]
+    if not include and profile and profile.preferred_technologies:
+        include = [k.strip().lower() for k in profile.preferred_technologies if k and k.strip()]
+    if not include and skills:
+        include = [s.name.strip().lower() for s in skills if s.name and s.name.strip()]
+
+    if include:
+        item_skills_lower = [s.strip().lower() for s in (item.skills or []) if s]
+        has_skill_match = any(k in item_skills_lower for k in include)
+        has_text_match = any(k in title_desc for k in include)
+        if not (has_skill_match or has_text_match):
+            return False, "عدم تطابق با مهارت‌ها و حوزه‌های تخصصی شما"
+
     for k in (filters.get("exclude_keywords") or []):
-        if k and normalize_text(k) in title_desc:
-            return False, f"excluded keyword: {k}"
+        if k and normalize_text(k).lower() in title_desc:
+            return False, f"کلمه کلیدی مستثنی‌شده: {k}"
+
     categories = [c for c in (filters.get("categories") or []) if c]
     if categories and (not item.category or not any(normalize_text(c) in normalize_text(item.category) for c in categories)):
-        return False, "category filter"
+        return False, "فیلتر دسته‌بندی"
+
     bmin = filters.get("budget_min")
+    if bmin is None and profile and profile.min_acceptable_budget:
+        bmin = profile.min_acceptable_budget
     bmax = filters.get("budget_max")
+
     if bmin and item.budget_max is not None and item.budget_max < float(bmin):
-        return False, "below minimum budget"
+        return False, f"بودجه کمتر از حداقل مجاز ({item.budget_max} < {bmin})"
     if bmax and item.budget_min is not None and item.budget_min > float(bmax):
-        return False, "above maximum budget"
+        return False, f"بودجه بیشتر از حداکثر مجاز ({item.budget_min} > {bmax})"
+
     return True, ""
 
 
@@ -181,6 +197,15 @@ async def scan_platform(slug: str, trigger: str = "scheduler") -> dict[str, Any]
         counts["found"] = len(items)
 
         async with session_factory() as session:
+            prof_row = (await session.execute(
+                select(DeveloperProfile).where(DeveloperProfile.is_active == True).limit(1)  # noqa: E712
+            )).scalar_one_or_none()
+            prof_skills = []
+            if prof_row:
+                prof_skills = (await session.execute(
+                    select(DeveloperSkill).where(DeveloperSkill.profile_id == prof_row.id)
+                )).scalars().all()
+
             cutoff = _utcnow() - timedelta(days=14)
             rows = (await session.execute(
                 select(Project.id, Project.title)
@@ -190,7 +215,7 @@ async def scan_platform(slug: str, trigger: str = "scheduler") -> dict[str, Any]
             recent = [{"id": r[0], "title": r[1]} for r in rows]
 
             for item in items:
-                ok, reason = _passes_filters(item, cfg.filters or {})
+                ok, reason = _passes_filters(item, cfg.filters or {}, profile=prof_row, skills=prof_skills)
                 if not ok:
                     counts["filtered"] += 1
                     continue

@@ -245,11 +245,14 @@ async def deliver_notification(session, payload: dict) -> None:
                 .order_by(ProjectAnalysis.id.desc()).limit(1)
             )).scalar_one_or_none()
 
-            # Filter by minimum score if specified in Telegram settings
-            if analysis and setting.notify_min_score and (analysis.match_score or 0) < setting.notify_min_score:
-                log.info("Telegram notification skipped: score %s below threshold %s",
-                         analysis.match_score, setting.notify_min_score)
-                return
+            # Filter by minimum match score: never spam Telegram with unanalyzed
+            # or low-match/irrelevant projects!
+            min_score = setting.notify_min_score if setting and setting.notify_min_score is not None else 60
+            if min_score > 0:
+                if not analysis or (analysis.match_score or 0) < min_score:
+                    log.info("Telegram notification skipped: score %s below threshold %s",
+                             analysis.match_score if analysis else "none", min_score)
+                    return
 
             text = project_card(project, analysis, platform_name=platform.name)
             kb = project_keyboard(project.id, canonical_url=project.canonical_url)

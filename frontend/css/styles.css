@@ -3,17 +3,17 @@
    ========================================================================== */
 
 :root {
-  --canvas-bg: #577382;
+  --canvas-bg: #f8fafc;
   --canvas-bg-dark: #141d24;
   --window-bg: #ffffff;
   --window-bg-dark: #1b2631;
   --accent-teal: #1c6d81;
   --accent-teal-dark: #155565;
   --accent-cyan: #3d8896;
-  --accent-peach: #faeae1;
+  --accent-peach: #f1f5f9;
   --accent-peach-dark: #272120;
   --accent-coral: #f3844f;
-  --text-dark: #1e293b;
+  --text-dark: #0f172a;
   --text-muted: #64748b;
   --gold: #d4a437;
 }
@@ -72,6 +72,7 @@ html[dir="ltr"] .font-vazir {
   flex-direction: column;
   align-items: center;
   padding: 1.5rem 0.5rem;
+  background: #1e293b;
   color: #ffffff;
   user-select: none;
   z-index: 40;
@@ -79,6 +80,9 @@ html[dir="ltr"] .font-vazir {
   top: 0;
   height: 100vh;
   max-height: 100vh;
+}
+.dark .sidebar-rail {
+  background: #141d24;
 }
 
 @media (max-width: 900px) {
@@ -241,10 +245,10 @@ html[dir="ltr"] .font-vazir {
   background: var(--window-bg);
   border-radius: 36px;
   margin: 0.85rem 0.85rem 0.85rem 0;
-  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 10px 40px -10px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   min-height: calc(100vh - 1.7rem);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #e2e8f0;
   transition: background-color 0.25s ease;
 }
 html[dir="rtl"] .main-window {
