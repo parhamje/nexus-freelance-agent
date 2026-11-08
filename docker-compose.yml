@@ -35,6 +35,8 @@ services:
     environment:
       FREELANCE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-freelance}:${POSTGRES_PASSWORD:-freelance}@127.0.0.1:5432/${POSTGRES_DB:-freelance_agent}
       FREELANCE_REDIS_URL: redis://127.0.0.1:6379/0
+    volumes:
+      - ./frontend:/app/frontend
 
 volumes:
   pgdata:

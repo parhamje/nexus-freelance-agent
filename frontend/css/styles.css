@@ -235,27 +235,30 @@ html[dir="ltr"] .font-vazir {
 }
 
 #user-quick-menu {
-  background: #ffffff;
-  color: #0f172a;
-  border-color: #e2e8f0;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
 }
 .dark #user-quick-menu {
-  background: #1b2631;
-  color: #f1f5f9;
-  border-color: #2b3d4f;
+  background: #1b2631 !important;
+  color: #f1f5f9 !important;
+  border-color: #2b3d4f !important;
 }
 #user-quick-menu button {
-  color: #334155;
+  color: #1e293b !important;
   text-align: start;
 }
 #user-quick-menu button:hover {
-  color: #0f172a;
+  color: #0f172a !important;
+}
+#user-quick-menu button span {
+  color: inherit !important;
 }
 .dark #user-quick-menu button {
-  color: #cbd5e1;
+  color: #cbd5e1 !important;
 }
 .dark #user-quick-menu button:hover {
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 /* ==========================================================================
