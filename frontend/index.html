@@ -50,8 +50,8 @@
   <div id="login-view" class="hidden auth-viewport">
     <div class="nexus-auth-container">
       
-      <!-- Showcase & Live Pipeline Panel -->
-      <div class="nexus-showcase-panel">
+      <!-- Showcase & Live Pipeline Panel (Desktop Only) -->
+      <div class="nexus-showcase-panel hidden md:flex">
         <div class="nexus-showcase-header">
           <div class="nexus-brand-badge">
             <svg class="w-9 h-9" viewBox="0 0 40 40" fill="none">
@@ -129,7 +129,33 @@
 
       <!-- Authentication Form Panel -->
       <div class="nexus-form-panel">
-        <div class="nexus-form-header">
+        <!-- Compact Brand Header for Mobile (Hidden on Desktop) -->
+        <div class="nexus-mobile-brand md:hidden flex flex-col items-center justify-center text-center mb-5">
+          <div class="inline-flex items-center gap-2 mb-1.5">
+            <svg class="w-8 h-8" viewBox="0 0 40 40" fill="none">
+              <defs>
+                <linearGradient id="nexus-auth-mob-grad" x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#38bdf8"/>
+                  <stop offset="50%" stop-color="#2dd4bf"/>
+                  <stop offset="100%" stop-color="#34d399"/>
+                </linearGradient>
+              </defs>
+              <path d="M20 4L34 12V28L20 36L6 28V12L20 4Z" stroke="url(#nexus-auth-mob-grad)" stroke-width="2.6" stroke-linejoin="round"/>
+              <path d="M20 4V20M34 12L20 20M34 28L20 20M20 36V20M6 28L20 20M6 12L20 20" stroke="url(#nexus-auth-mob-grad)" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+              <circle cx="20" cy="20" r="4.2" fill="url(#nexus-auth-mob-grad)"/>
+              <circle cx="20" cy="4" r="2.2" fill="#38bdf8"/>
+              <circle cx="34" cy="12" r="2.2" fill="#2dd4bf"/>
+              <circle cx="34" cy="28" r="2.2" fill="#34d399"/>
+              <circle cx="20" cy="36" r="2.2" fill="#34d399"/>
+              <circle cx="6" cy="28" r="2.2" fill="#2dd4bf"/>
+              <circle cx="6" cy="12" r="2.2" fill="#38bdf8"/>
+            </svg>
+            <span class="text-xl font-black text-white tracking-wider">NEXUS AI</span>
+          </div>
+          <p class="text-[11px] text-slate-400">سامانه هوشمند پایش مناقصات و پیشنهاددهی خودکار</p>
+        </div>
+
+        <div class="nexus-form-header text-center sm:text-start">
           <h2 id="auth-panel-title" class="text-xl font-bold text-white tracking-tight">ورود به پنل کاربری</h2>
           <p id="auth-panel-sub" class="text-xs text-slate-400 mt-1">جهت دسترسی به داشبورد و ابزارهای هوشمند وارد شوید</p>
         </div>

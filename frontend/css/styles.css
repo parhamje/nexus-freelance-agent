@@ -309,28 +309,70 @@ html[dir="ltr"] .font-vazir {
 #user-quick-menu {
   background: #ffffff !important;
   color: #0f172a !important;
-  border-color: #e2e8f0 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
 }
 .dark #user-quick-menu {
   background: #1b2631 !important;
-  color: #f1f5f9 !important;
+  color: #f8fafc !important;
   border-color: #2b3d4f !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
 }
 #user-quick-menu button {
-  color: #1e293b !important;
   text-align: start;
 }
-#user-quick-menu button:hover {
+#user-quick-menu button#menu-btn-profile,
+#user-quick-menu button#menu-btn-profile span,
+#user-quick-menu button#menu-btn-settings,
+#user-quick-menu button#menu-btn-settings span {
+  color: #1e293b !important;
+}
+#user-quick-menu button#menu-btn-profile svg,
+#user-quick-menu button#menu-btn-settings svg {
+  color: #64748b !important;
+}
+#user-quick-menu button#menu-btn-profile:hover,
+#user-quick-menu button#menu-btn-profile:hover span,
+#user-quick-menu button#menu-btn-settings:hover,
+#user-quick-menu button#menu-btn-settings:hover span {
   color: #0f172a !important;
 }
-#user-quick-menu button span {
-  color: inherit !important;
+#user-quick-menu button#menu-btn-onboard,
+#user-quick-menu button#menu-btn-onboard span,
+#user-quick-menu button#menu-btn-onboard svg {
+  color: #0d9488 !important;
 }
-.dark #user-quick-menu button {
-  color: #cbd5e1 !important;
+#user-quick-menu button#menu-btn-logout,
+#user-quick-menu button#menu-btn-logout span,
+#user-quick-menu button#menu-btn-logout svg {
+  color: #e11d48 !important;
 }
-.dark #user-quick-menu button:hover {
+
+.dark #user-quick-menu button#menu-btn-profile,
+.dark #user-quick-menu button#menu-btn-profile span,
+.dark #user-quick-menu button#menu-btn-settings,
+.dark #user-quick-menu button#menu-btn-settings span {
+  color: #e2e8f0 !important;
+}
+.dark #user-quick-menu button#menu-btn-profile svg,
+.dark #user-quick-menu button#menu-btn-settings svg {
+  color: #94a3b8 !important;
+}
+.dark #user-quick-menu button#menu-btn-profile:hover,
+.dark #user-quick-menu button#menu-btn-profile:hover span,
+.dark #user-quick-menu button#menu-btn-settings:hover,
+.dark #user-quick-menu button#menu-btn-settings:hover span {
   color: #ffffff !important;
+}
+.dark #user-quick-menu button#menu-btn-onboard,
+.dark #user-quick-menu button#menu-btn-onboard span,
+.dark #user-quick-menu button#menu-btn-onboard svg {
+  color: #2dd4bf !important;
+}
+.dark #user-quick-menu button#menu-btn-logout,
+.dark #user-quick-menu button#menu-btn-logout span,
+.dark #user-quick-menu button#menu-btn-logout svg {
+  color: #fb7185 !important;
 }
 
 /* ==========================================================================
@@ -925,9 +967,12 @@ html[dir="rtl"] .cmd-item-arrow svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 10px 14px;
+  gap: 10px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.5);
   transition: background-color 0.15s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 .dark .hub-item {
   border-bottom-color: rgba(255, 255, 255, 0.05);
@@ -943,6 +988,7 @@ html[dir="rtl"] .cmd-item-arrow svg {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  flex: 1;
 }
 .hub-item-icon {
   width: 32px;
@@ -2214,6 +2260,21 @@ html[dir="ltr"] .switch-toggle input:checked + .switch-slider::before {
   }
 }
 
+@media (max-width: 767px) {
+  .auth-viewport {
+    padding: 1rem 0.85rem !important;
+    align-items: center !important;
+  }
+  .nexus-auth-container {
+    max-width: 440px !important;
+    border-radius: 22px !important;
+    margin: auto 0;
+  }
+  .nexus-form-panel {
+    padding: 1.6rem 1.25rem !important;
+  }
+}
+
 /* Showcase Panel */
 .nexus-showcase-panel {
   display: flex;
@@ -2573,30 +2634,50 @@ html[dir="ltr"] .auth-form-view.is-inactive-right {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 5;
 }
 
 .auth-input {
   width: 100%;
-  padding: 0.7rem 2.6rem;
-  background: rgba(11, 18, 24, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.72rem 2.6rem;
+  background: rgba(11, 18, 24, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 12px;
-  color: #ffffff;
-  font-size: 0.85rem;
+  color: #ffffff !important;
+  font-size: 0.86rem;
   transition: all 0.2s ease;
   font-family: inherit;
 }
 
+@media (max-width: 768px) {
+  .auth-input {
+    font-size: 16px !important; /* Prevents iOS auto-zoom */
+    padding: 0.75rem 2.6rem !important;
+  }
+}
+
 .auth-input::placeholder {
-  color: #64748b;
-  font-size: 0.8rem;
+  color: #64748b !important;
+  font-size: 0.82rem;
 }
 
 .auth-input:focus {
   outline: none;
-  background: rgba(11, 18, 24, 0.95);
-  border-color: #2dd4bf;
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+  background: rgba(11, 18, 24, 0.98) !important;
+  border-color: #2dd4bf !important;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22) !important;
+}
+
+/* Chrome / Safari / Edge Autofill Fix for Dark Auth Studio */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover, 
+.auth-input:-webkit-autofill:focus, 
+.auth-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #121a21 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  border-color: rgba(45, 212, 191, 0.45) !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 .auth-toggle-pwd {
@@ -2614,6 +2695,7 @@ html[dir="ltr"] .auth-form-view.is-inactive-right {
   justify-content: center;
   border-radius: 6px;
   transition: color 0.15s ease;
+  z-index: 5;
 }
 
 .auth-toggle-pwd:hover {
@@ -2854,6 +2936,8 @@ html[dir="ltr"] .auth-form-view.is-inactive-right {
   .notif-dropdown {
     position: fixed !important;
     top: 56px !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
     inset-inline-start: 0.75rem !important;
     inset-inline-end: 0.75rem !important;
     width: auto !important;
