@@ -81,8 +81,9 @@ async def update_settings(body: TelegramSettingsIn, db: AsyncSession = Depends(g
                 s.bot_username = test_res["bot_username"]
         else:
             s.connection_status = "error"
+            s.enabled = False
         s.last_check_at = datetime.now(timezone.utc)
-    if body.enabled is not None:
+    elif body.enabled is not None:
         s.enabled = body.enabled
     if body.mode is not None:
         if body.mode not in ("polling", "webhook"):

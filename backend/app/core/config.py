@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     telegram_webhook_secret: str = ""
+    telegram_proxy: str = ""
 
     user_agent: str = (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "

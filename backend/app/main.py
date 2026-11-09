@@ -37,6 +37,15 @@ async def _startup() -> None:
     async with session_factory() as session:
         await seed(session)
         await sync_platform_rows(session)
+        # Auto-enable telegram setting if a bot token was previously saved
+        from app.models import TelegramSetting
+        from sqlalchemy import select
+        tg_s = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+        if tg_s and tg_s.bot_token_encrypted and not tg_s.enabled:
+            tg_s.enabled = True
+            tg_s.notify_enabled = True
+            await session.commit()
+            log.info("auto-enabled telegram setting on startup because bot token is configured")
     await recover_stale(session_factory)
 
     # Import services so their @handler registrations are active

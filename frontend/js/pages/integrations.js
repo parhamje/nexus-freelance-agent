@@ -536,7 +536,8 @@ export const telegram = {
     // Save & Validate Settings
     container.querySelector('#tg-save').onclick = async () => {
       const token = container.querySelector('#tg-token').value.trim();
-      const enabled = container.querySelector('#tg-enabled').checked;
+      const enabledCheckbox = container.querySelector('#tg-enabled');
+      const enabled = token ? true : (enabledCheckbox ? enabledCheckbox.checked : true);
       const notify = container.querySelector('#tg-notify').checked;
       const minscore = Number(container.querySelector('#tg-minscore').value);
       if (!token && !s.has_token) return toast('توکن ربات را وارد کنید', 'error');

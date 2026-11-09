@@ -56,14 +56,43 @@ _cached: dict = {"token_hash": None, "bot": None}
 
 def _bot_for(token: str):
     token_hash = hashlib.sha256(token.encode()).hexdigest()
-    if _cached["bot"] is None or _cached["token_hash"] != token_hash:
+    bot = _cached.get("bot")
+    # Verify underlying session is still open and healthy
+    if bot is not None and _cached.get("token_hash") == token_hash:
+        session = getattr(bot, "session", None)
+        underlying = getattr(session, "_session", None)
+        if underlying is not None and getattr(underlying, "closed", False):
+            bot = None
+
+    if bot is None or _cached.get("token_hash") != token_hash:
+        import os
         from aiogram import Bot
-        _cached["bot"] = Bot(token=token)
+        from aiogram.client.session.aiohttp import AiohttpSession
+        from app.core.config import get_settings
+
+        cfg = get_settings()
+        proxy = (
+            getattr(cfg, "telegram_proxy", "")
+            or os.environ.get("FREELANCE_TELEGRAM_PROXY")
+            or os.environ.get("TELEGRAM_PROXY")
+            or os.environ.get("HTTPS_PROXY")
+            or os.environ.get("HTTP_PROXY")
+            or None
+        )
+        aiosession = AiohttpSession(proxy=proxy) if proxy else None
+        bot = Bot(token=token, session=aiosession)
+        _cached["bot"] = bot
         _cached["token_hash"] = token_hash
-    return _cached["bot"]
+    return bot
 
 
 async def reset_bot() -> None:
+    bot = _cached.get("bot")
+    if bot is not None and getattr(bot, "session", None):
+        try:
+            await bot.session.close()
+        except Exception:  # noqa: BLE001
+            pass
     _cached["bot"] = None
     _cached["token_hash"] = None
 
@@ -1308,10 +1337,29 @@ async def start_polling(session_factory) -> None:
     dp = None
     bot = None
     polling_task = None
+    backoff_delay = 2.0
     log.info("telegram supervisor started")
 
     while True:
         try:
+            # Check if previous polling task died or finished unexpectedly
+            if polling_task is not None and polling_task.done():
+                exc = None
+                try:
+                    exc = polling_task.exception()
+                except (asyncio.CancelledError, asyncio.InvalidStateError):
+                    pass
+                if exc:
+                    log.warning("telegram polling task died with error: %s - will restart in %.1fs", exc, backoff_delay)
+                else:
+                    log.warning("telegram polling task finished unexpectedly - will restart in %.1fs", backoff_delay)
+                polling_task = None
+                current_hash = None  # Force restart on next check
+                await asyncio.sleep(backoff_delay)
+                backoff_delay = min(backoff_delay * 1.5, 30.0)
+            else:
+                backoff_delay = 2.0
+
             async with session_factory() as session:
                 from app.models import TelegramSetting
                 setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
@@ -1319,40 +1367,49 @@ async def start_polling(session_factory) -> None:
                 enabled = bool(setting and setting.enabled and setting.mode == "polling" and token)
                 token_hash = hashlib.sha256(token.encode()).hexdigest() if token else None
 
-            if enabled and token_hash != current_hash:
+            if enabled and (token_hash != current_hash or polling_task is None):
                 if polling_task:
                     polling_task.cancel()
                     try:
                         await polling_task
                     except (asyncio.CancelledError, Exception):  # noqa: BLE001
                         pass
+                    polling_task = None
+
+                await reset_bot()
+                bot = _bot_for(token)
                 dp = Dispatcher(storage=MemoryStorage())
                 dp.include_router(build_router())
-                bot = _bot_for(token)
-                await reset_bot()  # force fresh Bot from token
-                bot = _bot_for(token)
                 try:
                     await bot.delete_webhook(drop_pending_updates=True)
                 except Exception as exc:  # noqa: BLE001
                     log.warning("failed to delete webhook before polling: %s", exc)
-                polling_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
+
+                polling_task = asyncio.create_task(
+                    dp.start_polling(bot, handle_signals=False, close_bot_session=False)
+                )
                 current_hash = token_hash
                 async with session_factory() as session:
                     from app.models import TelegramSetting
-                    setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one()
-                    setting.connection_status = "connected"
-                    await session.commit()
-                log.info("telegram polling started")
+                    s_row = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+                    if s_row:
+                        s_row.connection_status = "connected"
+                        await session.commit()
+                log.info("telegram polling started for token: %s...", token[:8])
             elif not enabled and current_hash is not None:
                 if polling_task:
                     polling_task.cancel()
+                    try:
+                        await polling_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
                     polling_task = None
                 current_hash = None
                 async with session_factory() as session:
                     from app.models import TelegramSetting
-                    setting = (await session.execute(select(TelegramSetting).limit(1))).scalar_one()
-                    if setting:
-                        setting.connection_status = "disconnected"
+                    s_row = (await session.execute(select(TelegramSetting).limit(1))).scalar_one_or_none()
+                    if s_row:
+                        s_row.connection_status = "disconnected"
                         await session.commit()
                 log.info("telegram polling stopped")
         except asyncio.CancelledError:
