@@ -365,7 +365,7 @@ html[dir="rtl"] .main-window {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .main-window {
     margin: 0 !important;
     border-radius: 0 !important;
@@ -404,14 +404,8 @@ html[dir="rtl"] .main-window {
 }
 @media (max-width: 768px) {
   .window-topbar {
-    padding: 0.85rem 1.15rem;
+    padding: 0.65rem 0.85rem;
     gap: 0.5rem;
-  }
-}
-@media (max-width: 640px) {
-  .window-topbar {
-    padding: 0.65rem 0.75rem;
-    gap: 0.35rem;
     flex-wrap: nowrap;
   }
   .platform-hub-label {
@@ -422,17 +416,29 @@ html[dir="rtl"] .main-window {
     gap: 0.25rem !important;
   }
   .topbar-controls {
-    gap: 0.3rem !important;
+    gap: 0.35rem !important;
+  }
+  .action-icon-btn {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+    font-size: 0.82rem !important;
+  }
+  .pill-btn {
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+@media (max-width: 640px) {
+  .window-topbar {
+    padding: 0.55rem 0.75rem;
+    gap: 0.35rem;
   }
   .action-icon-btn {
     width: 32px !important;
     height: 32px !important;
     border-radius: 8px !important;
-    font-size: 0.8rem !important;
-  }
-  .pill-btn {
-    padding: 0.35rem 0.65rem !important;
-    font-size: 0.75rem !important;
+    font-size: 0.78rem !important;
   }
 }
 
@@ -2839,6 +2845,25 @@ html[dir="ltr"] .auth-form-view.is-inactive-right {
     inset-inline-end: 0.75rem !important;
     width: auto !important;
     max-width: 100% !important;
+  }
+}
+
+/* Dropdowns: Fixed full-width card on mobile/tablet so they never overflow screen */
+@media (max-width: 768px) {
+  .platform-dropdown,
+  .notif-dropdown {
+    position: fixed !important;
+    top: 56px !important;
+    inset-inline-start: 0.75rem !important;
+    inset-inline-end: 0.75rem !important;
+    width: auto !important;
+    max-width: calc(100vw - 1.5rem) !important;
+    max-height: calc(100vh - 125px) !important;
+    overflow-y: auto !important;
+    border-radius: 20px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+    z-index: 70 !important;
+    margin: 0 !important;
   }
 }
 

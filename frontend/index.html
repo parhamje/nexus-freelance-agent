@@ -288,6 +288,27 @@
         <!-- Rendered by app.js with exact SVG icons & signature active bubble -->
       </nav>
 
+      <!-- Mobile Quick Controls in Drawer (Sound & Language) -->
+      <div class="drawer-quick-controls md:hidden mt-auto mb-2 pt-2 border-t border-white/10 space-y-1.5 w-full">
+        <button id="btn-drawer-lang" type="button" class="w-full text-start px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs flex items-center justify-between transition cursor-pointer">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>زبان / Language</span>
+          </span>
+          <span id="drawer-lang-val" class="font-bold text-teal-300 font-mono text-xs">EN</span>
+        </button>
+
+        <button id="btn-drawer-sound" type="button" class="w-full text-start px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs flex items-center justify-between transition cursor-pointer">
+          <span class="flex items-center gap-2">
+            <span id="drawer-sound-icon" class="w-4 h-4 flex items-center justify-center text-teal-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            </span>
+            <span>صدای اعلان</span>
+          </span>
+          <span id="drawer-sound-val" class="font-bold text-emerald-400 text-xs">روشن</span>
+        </button>
+      </div>
+
       <!-- Bottom Profile Avatar & Quick Menu -->
       <div class="rail-profile relative" id="user-profile-wrap">
         <div class="rail-avatar cursor-pointer" id="user-profile-btn" title="پروفایل کاربر / User Profile">
@@ -338,13 +359,14 @@
     </aside>
 
     <div id="sidebar-backdrop" class="hidden fixed inset-0 bg-black/50 z-30 md:hidden"></div>
+    <div id="dropdown-backdrop" class="hidden fixed inset-0 bg-black/40 z-[65] md:hidden"></div>
 
     <!-- Main Floating Window Card (Rounded White Panel) -->
     <div id="main-window" class="main-window">
       <!-- Window Topbar -->
       <header class="window-topbar">
-        <!-- Left: Mobile Menu, Mobile Brand, Mobile Search & Live Agent Telemetry Badge -->
-        <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Left: Mobile Menu, Mobile Brand & Live Agent Telemetry Badge -->
+        <div class="flex items-center gap-2">
           <button id="btn-menu" class="pill-btn md:hidden" title="منو">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
@@ -352,9 +374,6 @@
             <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
             <span>NEXUS</span>
           </a>
-          <button id="btn-mobile-search" class="pill-btn md:hidden" title="جستجو">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </button>
           <div class="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/90 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-xs">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span id="agent-status-badge">ایجنت هوشمند فعال</span>
@@ -390,11 +409,11 @@
           </button>
         </div>
 
-        <!-- Right: Platform & Engine Status Hub, Notifications, Sound, Lang, Theme -->
+        <!-- Right: Platform & Engine Status Hub, Mobile Search, Notifications, Theme -->
         <div class="topbar-controls">
           <!-- Platform & Engine Live Health Hub -->
           <div class="relative">
-            <button id="platform-hub-btn" class="platform-hub-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xs hover:border-teal-500 transition whitespace-nowrap select-none cursor-pointer" type="button" title="وضعیت کانال‌ها و هوش مصنوعی">
+            <button id="platform-hub-btn" class="platform-hub-btn inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xs hover:border-teal-500 transition whitespace-nowrap select-none cursor-pointer" type="button" title="وضعیت کانال‌ها و هوش مصنوعی">
               <div class="platform-hub-stack flex items-center shrink-0" id="platform-hub-badges">
                 <span class="platform-mini-badge w-5 h-5 rounded-full ring-2 ring-white dark:ring-slate-800 -ms-1.5 first:ms-0 flex items-center justify-center text-[10px] font-black text-white bg-blue-600 relative shrink-0" title="Karlancer">
                   K
@@ -409,7 +428,7 @@
                   <span class="status-dot-mini absolute -bottom-0.5 -end-0.5 w-2 h-2 rounded-full ring-1 ring-white dark:ring-slate-800 bg-emerald-400"></span>
                 </span>
               </div>
-              <span id="platform-hub-label" class="platform-hub-label font-bold text-xs whitespace-nowrap">کانال‌ها و AI</span>
+              <span id="platform-hub-label" class="platform-hub-label hidden lg:inline font-bold text-xs whitespace-nowrap">کانال‌ها و AI</span>
               <svg id="platform-hub-chevron" class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
@@ -417,12 +436,12 @@
             <div id="platform-hub-dropdown" class="hidden absolute end-0 mt-2 platform-dropdown p-0 z-50"></div>
           </div>
 
-          <button id="btn-sound" class="action-icon-btn" title="صدا / Sound">
-            <span id="sound-icon-box" class="w-4 h-4 flex items-center justify-center">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-            </span>
+          <!-- Mobile Quick Search Button (opens command palette) -->
+          <button id="btn-mobile-search" class="action-icon-btn md:hidden" title="جستجوی سریع">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
 
+          <!-- Notifications Bell -->
           <div class="relative">
             <button id="btn-bell" class="action-icon-btn relative" title="اعلان‌ها / Notifications">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -431,8 +450,17 @@
             <div id="bell-dropdown" class="hidden absolute end-0 mt-2 notif-dropdown text-slate-800 dark:text-slate-100 p-0 z-50 max-h-[28rem] overflow-y-auto"></div>
           </div>
 
-          <button id="btn-lang" class="action-icon-btn font-bold text-xs" title="زبان / Language">EN</button>
+          <!-- Desktop Sound Toggle (hidden on mobile) -->
+          <button id="btn-sound" class="action-icon-btn hidden md:flex" title="صدا / Sound">
+            <span id="sound-icon-box" class="w-4 h-4 flex items-center justify-center">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            </span>
+          </button>
 
+          <!-- Desktop Language Toggle (hidden on mobile) -->
+          <button id="btn-lang" class="action-icon-btn hidden md:flex font-bold text-xs" title="زبان / Language">EN</button>
+
+          <!-- Theme Toggle (visible on all screens) -->
           <button id="btn-theme" class="action-icon-btn" title="حالت شب/روز / Toggle Theme">
             <span id="theme-icon-box" class="w-4 h-4 flex items-center justify-center">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>

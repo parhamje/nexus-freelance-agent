@@ -407,9 +407,14 @@ async function loadPlatformHubDropdown() {
         <span class="text-xs font-bold text-slate-800 dark:text-slate-100">${isEn ? 'Platform & Engine Status' : 'وضعیت کانال‌ها و موتور هوش مصنوعی'}</span>
         <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/15 text-teal-700 dark:text-teal-300">${enabledCount} ${isEn ? 'active' : 'فعال'}</span>
       </div>
-      <button id="hub-refresh-action" class="text-slate-400 hover:text-teal-600 transition p-1" title="${isEn ? 'Refresh' : 'بروزرسانی'}">
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-      </button>
+      <div class="flex items-center gap-1.5">
+        <button id="hub-refresh-action" class="text-slate-400 hover:text-teal-600 transition p-1" title="${isEn ? 'Refresh' : 'بروزرسانی'}">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+        <button id="hub-close-action" class="text-slate-400 hover:text-rose-500 transition p-1 text-xs font-bold cursor-pointer" title="${isEn ? 'Close' : 'بستن'}">
+          ✕
+        </button>
+      </div>
     </div>
 
     <div class="hub-section-title">${isEn ? 'Freelance Channels' : 'کانال‌های فریلنسری'}</div>
@@ -448,23 +453,28 @@ async function loadPlatformHubDropdown() {
     };
   });
 
+  const hideHubDropdown = () => {
+    box.classList.add('hidden');
+    document.getElementById('platform-hub-btn')?.classList.remove('is-active');
+    document.getElementById('dropdown-backdrop')?.classList.add('hidden');
+  };
+
+  box.querySelector('#hub-close-action')?.addEventListener('click', hideHubDropdown);
+
   box.querySelectorAll('.hub-enable-btn').forEach(btn => {
     btn.onclick = () => {
-      box.classList.add('hidden');
-      document.getElementById('platform-hub-btn')?.classList.remove('is-active');
+      hideHubDropdown();
       navigate('platforms');
     };
   });
 
   box.querySelector('#hub-goto-platforms-btn')?.addEventListener('click', () => {
-    box.classList.add('hidden');
-    document.getElementById('platform-hub-btn')?.classList.remove('is-active');
+    hideHubDropdown();
     navigate('platforms');
   });
 
   box.querySelector('#hub-goto-ai-btn')?.addEventListener('click', () => {
-    box.classList.add('hidden');
-    document.getElementById('platform-hub-btn')?.classList.remove('is-active');
+    hideHubDropdown();
     navigate('ai');
   });
 
@@ -473,8 +483,7 @@ async function loadPlatformHubDropdown() {
   });
 
   box.querySelector('#hub-scan-all-btn')?.addEventListener('click', async () => {
-    box.classList.add('hidden');
-    document.getElementById('platform-hub-btn')?.classList.remove('is-active');
+    hideHubDropdown();
     const { triggerQuickScan } = await import('./command_palette.js');
     triggerQuickScan();
   });
@@ -544,24 +553,34 @@ async function boot() {
     };
   }
 
-  // Language Toggle
+  // Language Toggle (Desktop + Mobile Drawer)
   const btnLang = document.getElementById('btn-lang');
-  if (btnLang) {
-    btnLang.onclick = () => {
-      const next = currentLang() === 'fa' ? 'en' : 'fa';
-      setLang(next);
-      buildNav();
-      render();
-      btnLang.textContent = next === 'fa' ? 'EN' : 'فا';
-    };
-    btnLang.textContent = currentLang() === 'fa' ? 'EN' : 'فا';
-  }
+  const btnDrawerLang = document.getElementById('btn-drawer-lang');
+  const drawerLangVal = document.getElementById('drawer-lang-val');
+
+  const updateLangUI = (lang) => {
+    if (btnLang) btnLang.textContent = lang === 'fa' ? 'EN' : 'فا';
+    if (drawerLangVal) drawerLangVal.textContent = lang === 'fa' ? 'فارسی (FA)' : 'English (EN)';
+  };
+
+  const toggleLanguage = () => {
+    const next = currentLang() === 'fa' ? 'en' : 'fa';
+    setLang(next);
+    buildNav();
+    render();
+    updateLangUI(next);
+  };
+
+  if (btnLang) btnLang.onclick = toggleLanguage;
+  if (btnDrawerLang) btnDrawerLang.onclick = toggleLanguage;
+  updateLangUI(currentLang());
 
   // Mobile menu button & drawer toggle
   const btnMenu = document.getElementById('btn-menu');
   const btnSidebarClose = document.getElementById('btn-sidebar-close');
   const sidebar = document.getElementById('sidebar');
   const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  const dropdownBackdrop = document.getElementById('dropdown-backdrop');
 
   const openSidebar = () => {
     sidebar?.classList.add('open');
@@ -598,63 +617,98 @@ async function boot() {
     };
   });
 
-  // Bell Notifications Button
+  // Bell Notifications Button & Dropdown
   const btnBell = document.getElementById('btn-bell');
   const bellDropdown = document.getElementById('bell-dropdown');
+  const platformHubBtn = document.getElementById('platform-hub-btn');
+  const platformHubDropdown = document.getElementById('platform-hub-dropdown');
+
+  const closeDropdowns = () => {
+    bellDropdown?.classList.add('hidden');
+    platformHubDropdown?.classList.add('hidden');
+    platformHubBtn?.classList.remove('is-active');
+    dropdownBackdrop?.classList.add('hidden');
+  };
+
+  if (dropdownBackdrop) dropdownBackdrop.onclick = closeDropdowns;
+
   if (btnBell && bellDropdown) {
     btnBell.onclick = async (e) => {
       e.stopPropagation();
       if (bellDropdown.classList.contains('hidden')) {
+        platformHubDropdown?.classList.add('hidden');
+        platformHubBtn?.classList.remove('is-active');
         await loadBellDropdown();
         bellDropdown.classList.remove('hidden');
+        dropdownBackdrop?.classList.remove('hidden');
       } else {
         bellDropdown.classList.add('hidden');
+        dropdownBackdrop?.classList.add('hidden');
       }
     };
     document.addEventListener('click', (e) => {
       if (!bellDropdown.contains(e.target) && !btnBell.contains(e.target)) {
         bellDropdown.classList.add('hidden');
+        if (platformHubDropdown?.classList.contains('hidden')) {
+          dropdownBackdrop?.classList.add('hidden');
+        }
       }
     });
   }
 
-  // Sound Chime Button
+  // Sound Chime Button (Desktop + Mobile Drawer)
   const btnSound = document.getElementById('btn-sound');
-  if (btnSound) {
-    btnSound.onclick = async () => {
-      const prefs = await api.get('/notifications/preferences');
-      const next = !prefs.sound_enabled;
-      await api.put('/notifications/preferences', { sound_enabled: next });
-      setSoundPrefs(next, prefs.volume);
-      const iconBox = document.getElementById('sound-icon-box');
-      if (iconBox) {
-        iconBox.innerHTML = icon(next ? 'sound' : 'soundOff', 'w-4 h-4');
-      }
-      toast(next ? 'صدای اعلان فعال شد' : 'صدای اعلان خاموش شد');
-      if (next) playChime();
-    };
-  }
+  const btnDrawerSound = document.getElementById('btn-drawer-sound');
+  const drawerSoundVal = document.getElementById('drawer-sound-val');
+  const drawerSoundIcon = document.getElementById('drawer-sound-icon');
+
+  const updateSoundUI = (enabled) => {
+    const iconBox = document.getElementById('sound-icon-box');
+    if (iconBox) iconBox.innerHTML = icon(enabled ? 'sound' : 'soundOff', 'w-4 h-4');
+    if (drawerSoundIcon) drawerSoundIcon.innerHTML = icon(enabled ? 'sound' : 'soundOff', 'w-4 h-4');
+    if (drawerSoundVal) {
+      drawerSoundVal.textContent = enabled ? 'روشن' : 'خاموش';
+      drawerSoundVal.className = `font-bold text-xs ${enabled ? 'text-emerald-400' : 'text-slate-400'}`;
+    }
+  };
+
+  const toggleSound = async () => {
+    const prefs = await api.get('/notifications/preferences');
+    const next = !prefs.sound_enabled;
+    await api.put('/notifications/preferences', { sound_enabled: next });
+    setSoundPrefs(next, prefs.volume);
+    updateSoundUI(next);
+    toast(next ? 'صدای اعلان فعال شد' : 'صدای اعلان خاموش شد');
+    if (next) playChime();
+  };
+
+  if (btnSound) btnSound.onclick = toggleSound;
+  if (btnDrawerSound) btnDrawerSound.onclick = toggleSound;
 
   // Platform Hub Status Toggle
-  const platformHubBtn = document.getElementById('platform-hub-btn');
-  const platformHubDropdown = document.getElementById('platform-hub-dropdown');
   if (platformHubBtn && platformHubDropdown) {
     platformHubBtn.onclick = async (e) => {
       e.stopPropagation();
       const isHidden = platformHubDropdown.classList.contains('hidden');
       if (isHidden) {
+        bellDropdown?.classList.add('hidden');
         platformHubBtn.classList.add('is-active');
         await loadPlatformHubDropdown();
         platformHubDropdown.classList.remove('hidden');
+        dropdownBackdrop?.classList.remove('hidden');
       } else {
         platformHubBtn.classList.remove('is-active');
         platformHubDropdown.classList.add('hidden');
+        dropdownBackdrop?.classList.add('hidden');
       }
     };
     document.addEventListener('click', (e) => {
       if (!platformHubDropdown.contains(e.target) && !platformHubBtn.contains(e.target)) {
         platformHubBtn.classList.remove('is-active');
         platformHubDropdown.classList.add('hidden');
+        if (bellDropdown?.classList.contains('hidden')) {
+          dropdownBackdrop?.classList.add('hidden');
+        }
       }
     });
   }
