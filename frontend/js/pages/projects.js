@@ -35,7 +35,7 @@ export function projectListPage(pageKey) {
       const isEn = currentLang() === 'en';
       container.innerHTML = `
         <!-- Sub-page Workflow Pills -->
-        <div class="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+        <div class="sub-tabs-scroll gap-2 mb-5">
           <button class="sub-tab-pill ${pageKey === 'discovered' ? 'active' : ''}" data-nav="discovered">
             ${icon('folder', 'w-3.5 h-3.5 inline me-1.5')}${isEn ? 'All Projects' : 'همه پروژه‌ها'}
           </button>
@@ -50,19 +50,21 @@ export function projectListPage(pageKey) {
           </button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3 mb-6 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
-          <div class="relative flex-1 min-w-[220px]">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 mb-5 bg-slate-50 dark:bg-slate-800/50 p-2.5 sm:p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
+          <div class="relative flex-1 min-w-0 sm:min-w-[220px]">
             <span class="absolute inset-y-0 start-3 flex items-center text-slate-400 pointer-events-none">
               ${icon('search', 'w-4 h-4')}
             </span>
-            <input id="proj-q" class="inp ps-9 text-xs" placeholder="${isEn ? 'Search title, skills or summary…' : 'جستجو در عنوان، مهارت‌ها یا توضیحات…'}" value="${esc(q)}">
+            <input id="proj-q" class="inp ps-9 text-xs w-full" placeholder="${isEn ? 'Search title, skills or summary…' : 'جستجو در عنوان، مهارت‌ها یا توضیحات…'}" value="${esc(q)}">
           </div>
-          <select id="proj-platform" class="inp max-w-[160px] text-xs">
+          <select id="proj-platform" class="inp w-full sm:max-w-[160px] text-xs">
             <option value="">${isEn ? 'All Platforms' : 'همه پلتفرم‌ها'}</option>
           </select>
-          <div class="text-xs font-medium text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1.5 whitespace-nowrap">
-            <span class="inline-block w-2 h-2 rounded-full bg-teal-500"></span>
-            <span>${isEn ? `Total: <b class="font-bold text-slate-700 dark:text-slate-200">${data.total}</b> projects` : `مجموع: <b class="font-bold text-slate-700 dark:text-slate-200">${data.total.toLocaleString('fa-IR')}</b> پروژه`}</span>
+          <div class="text-xs font-medium text-slate-500 dark:text-slate-400 px-1 sm:px-2 flex items-center gap-1.5 whitespace-nowrap justify-between sm:justify-start">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full bg-teal-500"></span>
+              <span>${isEn ? `Total: <b class="font-bold text-slate-700 dark:text-slate-200">${data.total}</b> projects` : `مجموع: <b class="font-bold text-slate-700 dark:text-slate-200">${data.total.toLocaleString('fa-IR')}</b> پروژه`}</span>
+            </span>
           </div>
         </div>
 

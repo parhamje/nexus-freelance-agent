@@ -80,6 +80,10 @@ export async function render() {
   document.querySelectorAll('.rail-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === parentKey);
   });
+  // Highlight Mobile Bottom Navigation Item
+  document.querySelectorAll('.mobile-bottom-item[data-bottom-page]').forEach(el => {
+    el.classList.toggle('active', el.dataset.bottomPage === parentKey);
+  });
 
   const container = document.getElementById('page-content');
   if (!container) return;
@@ -553,22 +557,46 @@ async function boot() {
     btnLang.textContent = currentLang() === 'fa' ? 'EN' : 'فا';
   }
 
-  // Mobile menu button
+  // Mobile menu button & drawer toggle
   const btnMenu = document.getElementById('btn-menu');
-  if (btnMenu) {
-    btnMenu.onclick = () => {
-      document.getElementById('sidebar')?.classList.add('open');
-      document.getElementById('sidebar-backdrop')?.classList.remove('hidden');
+  const btnSidebarClose = document.getElementById('btn-sidebar-close');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+
+  const openSidebar = () => {
+    sidebar?.classList.add('open');
+    sidebarBackdrop?.classList.remove('hidden');
+  };
+
+  const closeSidebar = () => {
+    sidebar?.classList.remove('open');
+    sidebarBackdrop?.classList.add('hidden');
+  };
+
+  if (btnMenu) btnMenu.onclick = openSidebar;
+  if (btnSidebarClose) btnSidebarClose.onclick = closeSidebar;
+  if (sidebarBackdrop) sidebarBackdrop.onclick = closeSidebar;
+
+  // Mobile Bottom Bar More Button
+  const mobileBottomMore = document.getElementById('mobile-bottom-more');
+  if (mobileBottomMore) {
+    mobileBottomMore.onclick = () => {
+      if (sidebar?.classList.contains('open')) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
     };
   }
 
-  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
-  if (sidebarBackdrop) {
-    sidebarBackdrop.onclick = () => {
-      document.getElementById('sidebar')?.classList.remove('open');
-      sidebarBackdrop.classList.add('hidden');
+  // Mobile Bottom Bar Direct Navigation
+  document.querySelectorAll('.mobile-bottom-item[data-bottom-page]').forEach(el => {
+    el.onclick = (e) => {
+      e.preventDefault();
+      closeSidebar();
+      navigate(el.dataset.bottomPage);
     };
-  }
+  });
 
   // Bell Notifications Button
   const btnBell = document.getElementById('btn-bell');
@@ -647,18 +675,22 @@ async function boot() {
 
     document.getElementById('menu-btn-profile')?.addEventListener('click', () => {
       userQuickMenu.classList.add('hidden');
+      closeSidebar();
       navigate('profile');
     });
     document.getElementById('menu-btn-onboard')?.addEventListener('click', () => {
       userQuickMenu.classList.add('hidden');
+      closeSidebar();
       showOnboardingWizard();
     });
     document.getElementById('menu-btn-settings')?.addEventListener('click', () => {
       userQuickMenu.classList.add('hidden');
+      closeSidebar();
       navigate('settings');
     });
     document.getElementById('menu-btn-logout')?.addEventListener('click', () => {
       userQuickMenu.classList.add('hidden');
+      closeSidebar();
       setToken('');
       showApp(false);
     });

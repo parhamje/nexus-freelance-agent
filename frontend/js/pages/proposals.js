@@ -8,7 +8,7 @@ import { icon } from '../icons.js';
 export function proposalSubTabs(activeKey) {
   const isEn = currentLang() === 'en';
   return `
-    <div class="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+    <div class="sub-tabs-scroll gap-2 mb-5">
       <button class="sub-tab-pill ${activeKey === 'proposals' ? 'active' : ''}" data-prop-nav="proposals">
         ${icon('reports', 'w-3.5 h-3.5 inline me-1.5')}${isEn ? 'All Proposals' : 'همه پیشنهادها'}
       </button>

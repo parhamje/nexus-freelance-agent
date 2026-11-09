@@ -247,8 +247,21 @@
     
     <!-- Outer Left Sidebar Rail (Inspired by screenshot) -->
     <aside id="sidebar" class="sidebar-rail">
+      <!-- Mobile Drawer Header with Close Button -->
+      <div class="drawer-mobile-header md:hidden flex items-center justify-between w-full pb-3 mb-2 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-400 to-teal-400 flex items-center justify-center text-slate-900 font-black text-xs shadow-xs">
+            N
+          </div>
+          <span class="font-extrabold text-white text-sm tracking-wider">NEXUS AI</span>
+        </div>
+        <button id="btn-sidebar-close" type="button" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer" title="بستن منو">
+          ✕
+        </button>
+      </div>
+
       <!-- Nexus Brand Logo -->
-      <a href="#/overview" class="brand-cluster" title="Nexus AI Dashboard">
+      <a href="#/overview" class="brand-cluster hidden md:flex" title="Nexus AI Dashboard">
         <svg class="w-9 h-9" viewBox="0 0 40 40" fill="none" aria-label="Nexus Logo">
           <defs>
             <linearGradient id="nexus-rail-grad" x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
@@ -330,11 +343,15 @@
     <div id="main-window" class="main-window">
       <!-- Window Topbar -->
       <header class="window-topbar">
-        <!-- Left: Mobile Menu, Mobile Search & Live Agent Telemetry Badge -->
-        <div class="flex items-center gap-2">
+        <!-- Left: Mobile Menu, Mobile Brand, Mobile Search & Live Agent Telemetry Badge -->
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <button id="btn-menu" class="pill-btn md:hidden" title="منو">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
+          <a href="#/overview" class="flex md:hidden items-center gap-1.5 no-underline font-extrabold text-xs text-slate-800 dark:text-white tracking-wider px-1">
+            <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+            <span>NEXUS</span>
+          </a>
           <button id="btn-mobile-search" class="pill-btn md:hidden" title="جستجو">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
@@ -425,7 +442,41 @@
       </header>
 
       <!-- Page Content Area -->
-      <main id="page-content" class="flex-1 overflow-y-auto p-4 md:p-8 max-w-[1400px] w-full mx-auto"></main>
+      <main id="page-content" class="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-8 max-w-[1400px] w-full mx-auto"></main>
+
+      <!-- Mobile Bottom Navigation Bar (Fixed for Mobile Screens) -->
+      <nav id="mobile-bottom-bar" class="mobile-bottom-bar md:hidden" aria-label="Mobile Navigation">
+        <a href="#/overview" class="mobile-bottom-item" data-bottom-page="overview" title="داشبورد">
+          <span class="mobile-bottom-icon">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </span>
+          <span class="mobile-bottom-label">داشبورد</span>
+        </a>
+        <a href="#/discovered" class="mobile-bottom-item" data-bottom-page="discovered" title="پروژه‌ها">
+          <span class="mobile-bottom-icon">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          </span>
+          <span class="mobile-bottom-label">پروژه‌ها</span>
+        </a>
+        <a href="#/proposals" class="mobile-bottom-item" data-bottom-page="proposals" title="پیشنهادها">
+          <span class="mobile-bottom-icon">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </span>
+          <span class="mobile-bottom-label">پیشنهادها</span>
+        </a>
+        <a href="#/platforms" class="mobile-bottom-item" data-bottom-page="platforms" title="کانال‌ها">
+          <span class="mobile-bottom-icon">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          </span>
+          <span class="mobile-bottom-label">کانال‌ها</span>
+        </a>
+        <button type="button" class="mobile-bottom-item" id="mobile-bottom-more" title="منو و تنظیمات">
+          <span class="mobile-bottom-icon">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </span>
+          <span class="mobile-bottom-label">منو</span>
+        </button>
+      </nav>
     </div>
   </div>
 
@@ -451,7 +502,7 @@
     </div>
   </div>
 
-  <div id="toast-container" class="fixed bottom-6 end-6 z-[60] space-y-2 w-80 max-w-[90vw]"></div>
+  <div id="toast-container" class="fixed bottom-20 md:bottom-6 start-3 end-3 sm:start-auto sm:end-6 z-[60] space-y-2 sm:w-80 max-w-full"></div>
   <div id="modal-root"></div>
 
   <script type="module" src="js/app.js?v=8"></script>

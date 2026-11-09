@@ -17,7 +17,7 @@ export function settingsSubTabs(activeKey) {
     { id: 'logs', label: isEn ? 'System Logs' : 'لاگ‌های سیستم', iconName: 'activity' },
   ];
   return `
-    <div class="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+    <div class="sub-tabs-scroll gap-2 mb-5">
       ${tabs.map(t => `
         <button class="sub-tab-pill ${activeKey === t.id ? 'active' : ''}" data-set-nav="${t.id}">
           ${icon(t.iconName, 'w-3.5 h-3.5 inline me-1.5')}${t.label}
